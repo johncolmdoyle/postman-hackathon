@@ -1,24 +1,20 @@
 import * as cdk from '@aws-cdk/core';
 import lambda = require('@aws-cdk/aws-lambda');
 import apigateway = require('@aws-cdk/aws-apigateway'); 
-import dynamodb = require('@aws-cdk/aws-dynamodb');
+import * as dynamodb from '@aws-cdk/aws-dynamodb';
 import * as sqs from '@aws-cdk/aws-sqs';
 import { DynamoEventSource, SqsDlq } from '@aws-cdk/aws-lambda-event-sources';
 
+interface CdkPostmanStackProps extends cdk.StackProps {
+  readonly initGlobalTable: dynamodb.ITable;
+  readonly finishGlobalTable: dynamodb.ITable;
+}
+
 export class CdkPostmanStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: cdk.Construct, id: string, props: CdkPostmanStackProps) {
     super(scope, id, props);
 
     // DYNAMODB
-    const initTable = dynamodb.Table.fromTableAttributes(this, 'initTable', { 
-      tableName: 'postman-hackathon-init', 
-      tableStreamArn: 'arn:aws:dynamodb:us-west-2:196295636944:table/postman-hackathon-init/stream/2021-01-14T03:08:52.414'
-    });
-
-    const finishTable = dynamodb.Table.fromTableAttributes(this, 'finishTable', {
-      tableName: 'postman-hackathon-finish',
-    });
-
     const regionTable = new dynamodb.Table(this, "regionTable", {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, 
       partitionKey: { name: "initId", type: dynamodb.AttributeType.STRING },
@@ -34,7 +30,7 @@ export class CdkPostmanStack extends cdk.Stack {
       handler: 'initiator.handler',
       runtime: lambda.Runtime.NODEJS_10_X,
       environment: {
-        TABLE_NAME: initTable.tableName,
+        TABLE_NAME: props.initGlobalTable.tableName,
         PRIMARY_KEY: 'initId'
       }
     });
@@ -55,24 +51,24 @@ export class CdkPostmanStack extends cdk.Stack {
       handler: 'finished.handler',
       runtime: lambda.Runtime.NODEJS_10_X,
       environment: {
-        TABLE_NAME: finishTable.tableName,
+        TABLE_NAME: props.finishGlobalTable.tableName,
         PRIMARY_KEY: 'initId',
         SORT_KEY: 'region'
       }
     });
 
     // LAMBDA PERMISSIONS
-    initTable.grantWriteData(initiatorLambda);
-    initTable.grantStreamRead(nslookupLambda);
+    props.initGlobalTable.grantWriteData(initiatorLambda);
+    props.initGlobalTable.grantStreamRead(nslookupLambda);
     regionTable.grantWriteData(nslookupLambda);
-    finishTable.grantWriteData(finishedLambda);
+    props.finishGlobalTable.grantWriteData(finishedLambda);
 
     // DEADLETTER QUEUE
     const nslookupDeadLetterQueue = new sqs.Queue(this, 'nslookUpDeadLetterQueue');
     const finsihedDeadLetterQueue = new sqs.Queue(this, 'finishedDeadLetterQueue');
 
     // DYNAMODB TRIGGER
-    nslookupLambda.addEventSource(new DynamoEventSource(initTable, {
+    nslookupLambda.addEventSource(new DynamoEventSource(props.initGlobalTable, {
       startingPosition: lambda.StartingPosition.TRIM_HORIZON,
       batchSize: 5,
       bisectBatchOnError: true,
