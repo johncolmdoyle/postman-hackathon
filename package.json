@@ -8,7 +8,10 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "deploy-global": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never",
+    "deploy-replications": "cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never",
+    "deploy-all": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never && cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never"
   },
   "devDependencies": {
     "@aws-cdk/assert": "1.84.0",
@@ -22,13 +25,16 @@
   },
   "dependencies": {
     "@aws-cdk/aws-apigateway": "^1.84.0",
+    "@aws-cdk/aws-certificatemanager": "^1.85.0",
     "@aws-cdk/aws-dynamodb": "^1.84.0",
     "@aws-cdk/aws-ecr": "^1.85.0",
     "@aws-cdk/aws-ecr-assets": "^1.85.0",
     "@aws-cdk/aws-lambda": "^1.84.0",
     "@aws-cdk/aws-lambda-event-sources": "^1.84.0",
+    "@aws-cdk/aws-route53": "^1.85.0",
     "@aws-cdk/aws-sqs": "^1.84.0",
     "@aws-cdk/core": "1.84.0",
+    "@aws-sdk/client-dynamodb": "^3.3.0",
     "source-map-support": "^0.5.16"
   }
 }
