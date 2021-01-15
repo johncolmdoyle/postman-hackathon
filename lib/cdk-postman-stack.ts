@@ -1,9 +1,11 @@
 import * as cdk from '@aws-cdk/core';
-import lambda = require('@aws-cdk/aws-lambda');
-import apigateway = require('@aws-cdk/aws-apigateway'); 
+import * as lambda from '@aws-cdk/aws-lambda';
+import * as apigateway from '@aws-cdk/aws-apigateway'; 
 import * as dynamodb from '@aws-cdk/aws-dynamodb';
 import * as sqs from '@aws-cdk/aws-sqs';
+import * as ecr from '@aws-cdk/aws-ecr';
 import { DynamoEventSource, SqsDlq } from '@aws-cdk/aws-lambda-event-sources';
+import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 
 interface CdkPostmanStackProps extends cdk.StackProps {
   readonly initGlobalTable: dynamodb.ITable;
@@ -26,7 +28,7 @@ export class CdkPostmanStack extends cdk.Stack {
 
     // LAMBDA
     const initiatorLambda = new lambda.Function(this, 'initiatorFunction', {
-      code: new lambda.AssetCode('src'),
+      code: new lambda.AssetCode('src/non-docker'),
       handler: 'initiator.handler',
       runtime: lambda.Runtime.NODEJS_10_X,
       environment: {
@@ -36,7 +38,7 @@ export class CdkPostmanStack extends cdk.Stack {
     });
 
     const nslookupLambda = new lambda.Function(this, 'nslookupFunction', {
-      code: new lambda.AssetCode('src'),
+      code: new lambda.AssetCode('src/non-docker'),
       handler: 'nslookup.handler',
       runtime: lambda.Runtime.NODEJS_10_X,
       environment: {
@@ -46,8 +48,18 @@ export class CdkPostmanStack extends cdk.Stack {
       }
     });
 
+    const tracerouteLambda = new lambda.DockerImageFunction(this, 'tracerouteFunction', {
+      code: lambda.DockerImageCode.fromImageAsset('src/docker/traceroute'),
+      timeout: cdk.Duration.seconds(120),
+      environment: {
+        TABLE_NAME: regionTable.tableName,
+        PRIMARY_KEY: 'initId',
+        SORT_KEY: 'functionCall'
+      }
+    });
+
     const finishedLambda = new lambda.Function(this, 'finishedFunction', {
-      code: new lambda.AssetCode('src'),
+      code: new lambda.AssetCode('src/non-docker'),
       handler: 'finished.handler',
       runtime: lambda.Runtime.NODEJS_10_X,
       environment: {
@@ -61,10 +73,12 @@ export class CdkPostmanStack extends cdk.Stack {
     props.initGlobalTable.grantWriteData(initiatorLambda);
     props.initGlobalTable.grantStreamRead(nslookupLambda);
     regionTable.grantWriteData(nslookupLambda);
+    regionTable.grantWriteData(tracerouteLambda);
     props.finishGlobalTable.grantWriteData(finishedLambda);
 
     // DEADLETTER QUEUE
     const nslookupDeadLetterQueue = new sqs.Queue(this, 'nslookUpDeadLetterQueue');
+    const tracerouteDeadLetterQueue = new sqs.Queue(this, 'tracerouteDeadLetterQueue');
     const finsihedDeadLetterQueue = new sqs.Queue(this, 'finishedDeadLetterQueue');
 
     // DYNAMODB TRIGGER
@@ -73,6 +87,14 @@ export class CdkPostmanStack extends cdk.Stack {
       batchSize: 5,
       bisectBatchOnError: true,
       onFailure: new SqsDlq(nslookupDeadLetterQueue),
+      retryAttempts: 10
+    }));
+
+    tracerouteLambda.addEventSource(new DynamoEventSource(props.initGlobalTable, {
+      startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+      batchSize: 5,
+      bisectBatchOnError: true,
+      onFailure: new SqsDlq(tracerouteDeadLetterQueue),
       retryAttempts: 10
     }));
 

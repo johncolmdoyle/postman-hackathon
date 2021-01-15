@@ -11,7 +11,11 @@ const globalstack = new CdkPostmanGlobalStack(app, 'CdkPostmanGlobalStack', {env
 //const east1stack = new CdkPostmanStack(app, 'CdkPostmanEast1Stack', {env: {region: "us-east-1"}});
 //const east2stack = new CdkPostmanStack(app, 'CdkPostmanEast2Stack', {env: {region: "us-east-2"}});
 //const west1stack = new CdkPostmanStack(app, 'CdkPostmanWest1Stack', {env: {region: "us-west-1"}});
-const west2stack = new CdkPostmanStack(app, 'CdkPostmanWest2Stack', {env: {region: "us-west-2"}, initGlobalTable: globalstack.initGlobalTable, finishGlobalTable: globalstack.finishGlobalTable});
+
+const west2stack = new CdkPostmanStack(app, 'CdkPostmanWest2Stack', {
+    env: {region: "us-west-2"}, 
+    initGlobalTable: globalstack.initGlobalTable, 
+    finishGlobalTable: globalstack.finishGlobalTable});
 
 //east1stack.addDependency(globalstack);
 //east2stack.addDependency(globalstack);

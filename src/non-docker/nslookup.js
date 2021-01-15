@@ -70,8 +70,10 @@ exports.handler = async (event, context) => {
   for (const record of event.Records) {
     item[PRIMARY_KEY] = record.dynamodb.NewImage.initId.S;
     item[SORT_KEY] = 'nslookup';
+    item['regionFunction'] = process.env.AWS_REGION;
     item['createdAt'] = (Math.floor(+new Date() / 1000)).toString();
     item['ttl'] = (Math.floor(+new Date() / 1000) + TTL_DELTA).toString();
+    item['lambdaRequestId'] = context.awsRequestId;
 
     let url = new URL(record.dynamodb.NewImage.apiUrl.S);
     
@@ -98,8 +100,7 @@ exports.handler = async (event, context) => {
     try {
       await db.put(params).promise();
     } catch (dbError) {
-      const errorResponse = dbError.code === 'ValidationException' && dbError.message.includes('reserved keyword') ?
-      DYNAMODB_EXECUTION_ERROR : RESERVED_RESPONSE;
+      console.log(dbError);
     }
   }
 };
