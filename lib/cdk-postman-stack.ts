@@ -6,14 +6,18 @@ import * as sqs from '@aws-cdk/aws-sqs';
 import * as ecr from '@aws-cdk/aws-ecr';
 import * as acm from '@aws-cdk/aws-certificatemanager';
 import * as route53 from '@aws-cdk/aws-route53';
+import * as cloudfront from '@aws-cdk/aws-cloudfront';
+import * as targets from '@aws-cdk/aws-route53-targets';
 import { DynamoEventSource, SqsDlq } from '@aws-cdk/aws-lambda-event-sources';
 import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
 
 interface CdkPostmanStackProps extends cdk.StackProps {
+  readonly certificate: acm.ICertificate;
   readonly initGlobalTableName: string;
   readonly finishGlobalTableName: string;
   readonly domainName: string;
+  readonly subDomainName: string;
   readonly lambdaContainerRegions: string[];
   readonly env: any;
 }
@@ -86,11 +90,28 @@ export class CdkPostmanStack extends cdk.Stack {
           }
         });
 
+        const retrieveLambda = new lambda.Function(this, 'retrieveFunction', {
+          code: new lambda.AssetCode('src/non-docker'),
+          handler: 'retrieve.handler',
+          runtime: lambda.Runtime.NODEJS_10_X,
+          environment: {
+            TABLE_NAME: finishGlobalTable.tableName,
+            PRIMARY_KEY: 'initId'
+          }
+        });
+
+        const healthLambda = new lambda.Function(this, 'healthFunction', {
+          code: new lambda.AssetCode('src/non-docker'),
+          handler: 'health.handler',
+          runtime: lambda.Runtime.NODEJS_10_X
+        });
+
         // NODE LAMBDA PERMISSIONS
         initGlobalTable.grantWriteData(initiatorLambda);
         initGlobalTable.grantStreamRead(nslookupLambda);
         regionTable.grantWriteData(nslookupLambda);
         finishGlobalTable.grantWriteData(finishedLambda);
+        finishGlobalTable.grantReadData(retrieveLambda);
 
         // DEADLETTER QUEUE
         const nslookupDeadLetterQueue = new sqs.Queue(this, 'nslookUpDeadLetterQueue');
@@ -146,37 +167,30 @@ export class CdkPostmanStack extends cdk.Stack {
         // API
         const api = new apigateway.RestApi(this, 'networkApi', {
           restApiName: 'Network Service',
-          endpointTypes: [apigateway.EndpointType.REGIONAL]
+          domainName: {
+            domainName: props.subDomainName.concat(props.domainName),
+            certificate: props.certificate,
+            securityPolicy: apigateway.SecurityPolicy.TLS_1_2
+          }
         });
 
+        // API Calls
         const tests = api.root.addResource('tests');
 
         const initiatorIntegration = new apigateway.LambdaIntegration(initiatorLambda);
         tests.addMethod('POST', initiatorIntegration);
         addCorsOptions(tests);
 
-        // ROUTE 53
-        const hostedZone = new route53.HostedZone(this, 'domainHostedZone', {
-          zoneName: props.domainName
-        });
+        const testId = tests.addResource('{id}');
+        const retrieveIntegration = new apigateway.LambdaIntegration(retrieveLambda);
+        testId.addMethod('GET', retrieveIntegration);
+        addCorsOptions(testId);
 
-//        const cert = new acm.Certificate(this, "certApi", {
-//          domainName: props.domainName,
-//          validation: acm.CertificateValidation.fromDns(hostedZone)
-//        });
-
-//        const domain = new apigateway.DomainName(this, "domainApi", {
-//          domainName: props.domainName,
-//          certificate: cert,
-//          endpointType: apigateway.EndpointType.REGIONAL
-//        });
-
-//        new apigateway.CfnBasePathMapping(this, "regionalApiMapping", {
-//          domainName: props.domainName,
-//          restApiId: api.restApiId,
-//          stage: api.deploymentStage.stageName
-//        });
-
+        // API Health
+        const health = api.root.addResource('health');
+        const healthIntegration = new apigateway.LambdaIntegration(healthLambda);
+        health.addMethod('GET', healthIntegration);
+        addCorsOptions(health);
       }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.finishGlobalTableName + "\n Error: " + error));
     }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.initGlobalTableName + "\n Error: " + error));
   }

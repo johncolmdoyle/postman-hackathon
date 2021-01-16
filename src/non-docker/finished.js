@@ -22,24 +22,39 @@ exports.handler = async (event, context) => {
 
     switch(functionName) {
       case 'traceroute':
-        functionOutput.push(AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.traceroute.L));
+        let inputData = {"traceroute": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.traceroute.L)};
+        functionOutput.push(inputData);
         break;
       case 'nslookup':
         if (record.dynamodb.NewImage.hasOwnProperty('lookup')) {
-          functionOutput.push(AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.lookup.L));
+          let inputData = {"lookup": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.lookup.L)}
+          functionOutput.push(inputData);
         }
         if (record.dynamodb.NewImage.hasOwnProperty('resolve4')) {
-          functionOutput.push(AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve4.L));
+          let inputData = {"resolve4": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve4.L)}
+          functionOutput.push(inputData);
         }
-        if (record.dynamodb.NewImage.hasOwnProperty('resolve4')) {
-          functionOutput.push(AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve6.L));
+        if (record.dynamodb.NewImage.hasOwnProperty('resolve6')) {
+          let inputData = {"resolve6": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve6.L)};
+          functionOutput.push(inputData);
         }
         if (record.dynamodb.NewImage.hasOwnProperty('resolveAny')) {
-          functionOutput.push(AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolveAny.L));
+          let inputData = {"resolveAny": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolveAny.L)};
+          functionOutput.push(inputData);
         }
         break;
     }
 
+    let formatedData = {};
+    functionOutput.forEach(function(item) {
+      for (var key of Object.keys(item)) {    
+        formatedData[key] = [];
+        for (var innerKey of Object.keys(item[key])) {
+        	formatedData[key].push(item[key][innerKey]);
+        };
+      }
+    });
+    
     const keyData = {};
     keyData[PRIMARY_KEY] = record.dynamodb.NewImage.initId.S;
     keyData['region'] = regionData;
@@ -55,7 +70,7 @@ exports.handler = async (event, context) => {
       ExpressionAttributeValues: {
         ":createdAt": createdAt,
         ":ttl": ttl,
-        ":functionOutput": functionOutput
+        ":functionOutput": formatedData
       }
     };
     
@@ -66,3 +81,4 @@ exports.handler = async (event, context) => {
     }
   }
 };
+
