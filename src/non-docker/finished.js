@@ -20,40 +20,57 @@ exports.handler = async (event, context) => {
     
     const functionOutput = [];
 
+    let inputData = {};
+    let formattingRequired = true;
+    let formatedData = {};
+
     switch(functionName) {
       case 'traceroute':
-        let inputData = {"traceroute": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.traceroute.L)};
+        inputData = {"traceroute": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.traceroute.L)};
         functionOutput.push(inputData);
+        break;
+      case 'whois':
+        formatedData["whois"] = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.whois.M);
+        formattingRequired = false;
+        break;
+      case 'dig':
+        formatedData["dig"] = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.dig.M);
+        formattingRequired = false;
+        break;
+      case 'response':
+        formatedData["response"] = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.response.M);
+        formattingRequired = false;
         break;
       case 'nslookup':
         if (record.dynamodb.NewImage.hasOwnProperty('lookup')) {
-          let inputData = {"lookup": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.lookup.L)}
+          inputData = {"lookup": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.lookup.L)}
           functionOutput.push(inputData);
         }
         if (record.dynamodb.NewImage.hasOwnProperty('resolve4')) {
-          let inputData = {"resolve4": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve4.L)}
+          inputData = {"resolve4": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve4.L)}
           functionOutput.push(inputData);
         }
         if (record.dynamodb.NewImage.hasOwnProperty('resolve6')) {
-          let inputData = {"resolve6": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve6.L)};
+          inputData = {"resolve6": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolve6.L)};
           functionOutput.push(inputData);
         }
         if (record.dynamodb.NewImage.hasOwnProperty('resolveAny')) {
-          let inputData = {"resolveAny": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolveAny.L)};
+          inputData = {"resolveAny": AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage.resolveAny.L)};
           functionOutput.push(inputData);
         }
         break;
     }
 
-    let formatedData = {};
-    functionOutput.forEach(function(item) {
-      for (var key of Object.keys(item)) {    
-        formatedData[key] = [];
-        for (var innerKey of Object.keys(item[key])) {
-        	formatedData[key].push(item[key][innerKey]);
-        };
-      }
-    });
+    if (formattingRequired) {
+      functionOutput.forEach(function(item) {
+        for (var key of Object.keys(item)) {    
+          formatedData[key] = [];
+          for (var innerKey of Object.keys(item[key])) {
+            formatedData[key].push(item[key][innerKey]);
+          };
+        }
+      });
+    }
     
     const keyData = {};
     keyData[PRIMARY_KEY] = record.dynamodb.NewImage.initId.S;

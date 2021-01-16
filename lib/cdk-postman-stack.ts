@@ -79,6 +79,29 @@ export class CdkPostmanStack extends cdk.Stack {
           }
         });
 
+        const whoisLambda = new lambda.Function(this, 'whoisFunction', {
+          code: new lambda.AssetCode('src/non-docker'),
+          handler: 'whois.handler',
+          runtime: lambda.Runtime.NODEJS_10_X,
+          environment: {
+            TABLE_NAME: regionTable.tableName,
+            PRIMARY_KEY: 'initId',
+            SORT_KEY: 'functionCall'
+          }
+        });
+
+        const responseLambda = new lambda.Function(this, 'responseFunction', {
+          code: new lambda.AssetCode('src/non-docker'),
+          handler: 'response.handler',
+          runtime: lambda.Runtime.NODEJS_10_X,
+          timeout: cdk.Duration.seconds(120),
+          environment: {
+            TABLE_NAME: regionTable.tableName,
+            PRIMARY_KEY: 'initId',
+            SORT_KEY: 'functionCall'
+          }
+        });
+
         const finishedLambda = new lambda.Function(this, 'finishedFunction', {
           code: new lambda.AssetCode('src/non-docker'),
           handler: 'finished.handler',
@@ -109,12 +132,19 @@ export class CdkPostmanStack extends cdk.Stack {
         // NODE LAMBDA PERMISSIONS
         initGlobalTable.grantWriteData(initiatorLambda);
         initGlobalTable.grantStreamRead(nslookupLambda);
+        initGlobalTable.grantStreamRead(whoisLambda);
+        initGlobalTable.grantStreamRead(retrieveLambda);
+        initGlobalTable.grantStreamRead(responseLambda);
         regionTable.grantWriteData(nslookupLambda);
+        regionTable.grantWriteData(whoisLambda);
+        regionTable.grantWriteData(responseLambda);
         finishGlobalTable.grantWriteData(finishedLambda);
         finishGlobalTable.grantReadData(retrieveLambda);
 
         // DEADLETTER QUEUE
         const nslookupDeadLetterQueue = new sqs.Queue(this, 'nslookUpDeadLetterQueue');
+        const whoisDeadLetterQueue = new sqs.Queue(this, 'whoisDeadLetterQueue');
+        const responseDeadLetterQueue = new sqs.Queue(this, 'responseDeadLetterQueue');
         const finsihedDeadLetterQueue = new sqs.Queue(this, 'finishedDeadLetterQueue');
 
         // DYNAMODB TRIGGER
@@ -123,6 +153,22 @@ export class CdkPostmanStack extends cdk.Stack {
           batchSize: 5,
           bisectBatchOnError: true,
           onFailure: new SqsDlq(nslookupDeadLetterQueue),
+          retryAttempts: 10
+        }));
+
+        whoisLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+          startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+          batchSize: 5,
+          bisectBatchOnError: true,
+          onFailure: new SqsDlq(whoisDeadLetterQueue),
+          retryAttempts: 10
+        }));
+
+        responseLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+          startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+          batchSize: 5,
+          bisectBatchOnError: true,
+          onFailure: new SqsDlq(responseDeadLetterQueue),
           retryAttempts: 10
         }));
 
@@ -148,11 +194,23 @@ export class CdkPostmanStack extends cdk.Stack {
             }
           });
 
+          const digLambda = new lambda.DockerImageFunction(this, 'digFunction', {
+            code: lambda.DockerImageCode.fromImageAsset('src/docker/dig'),
+            timeout: cdk.Duration.seconds(120),
+            environment: {
+              TABLE_NAME: regionTable.tableName,
+              PRIMARY_KEY: 'initId',
+              SORT_KEY: 'functionCall'
+            }
+          });
+
           // PERMISSION
           regionTable.grantWriteData(tracerouteLambda);
+          regionTable.grantWriteData(digLambda);
 
           // DEAD LETTER
           const tracerouteDeadLetterQueue = new sqs.Queue(this, 'tracerouteDeadLetterQueue');
+          const digDeadLetterQueue = new sqs.Queue(this, 'digDeadLetterQueue');
 
           // DYNAMODB TRIGGER
           tracerouteLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
@@ -160,6 +218,14 @@ export class CdkPostmanStack extends cdk.Stack {
             batchSize: 5,
             bisectBatchOnError: true,
             onFailure: new SqsDlq(tracerouteDeadLetterQueue),
+            retryAttempts: 10
+          }));
+
+          digLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+            startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+            batchSize: 5,
+            bisectBatchOnError: true,
+            onFailure: new SqsDlq(digDeadLetterQueue),
             retryAttempts: 10
           }));
         }
