@@ -14,6 +14,7 @@ import { DynamoDB } from '@aws-sdk/client-dynamodb';
 
 interface CdkPostmanStackProps extends cdk.StackProps {
   readonly certificate: acm.ICertificate;
+  readonly regionalCert: acm.ICertificate;
   readonly initGlobalTableName: string;
   readonly finishGlobalTableName: string;
   readonly domainName: string;
@@ -232,13 +233,22 @@ export class CdkPostmanStack extends cdk.Stack {
 
         // API
         const api = new apigateway.RestApi(this, 'networkApi', {
-          restApiName: 'Network Service',
-          domainName: {
-            domainName: props.subDomainName.concat(props.domainName),
-            certificate: props.certificate,
-            securityPolicy: apigateway.SecurityPolicy.TLS_1_2
-          }
+          restApiName: 'API Network Service',
         });
+
+        const regionalApiCustomDomain = new apigateway.DomainName(this, 'regionalApiCustomDomain', {
+          domainName: props.env.region.concat("." + props.domainName),
+          certificate: props.regionalCert
+        });
+
+        regionalApiCustomDomain.addBasePathMapping(api);
+
+        const restApiCustomDomain = new apigateway.DomainName(this, 'restApiCustomDomain', {
+          domainName: props.subDomainName.concat(props.domainName),
+          certificate: props.certificate
+        });
+
+        restApiCustomDomain.addBasePathMapping(api);
 
         // API Calls
         const tests = api.root.addResource('tests');
@@ -257,6 +267,44 @@ export class CdkPostmanStack extends cdk.Stack {
         const healthIntegration = new apigateway.LambdaIntegration(healthLambda);
         health.addMethod('GET', healthIntegration);
         addCorsOptions(health);
+
+        // ROUTE 53
+        const zone = route53.HostedZone.fromLookup(this, "zone", { domainName: props.domainName });
+
+        const regionalApiRecord = new route53.ARecord(this, 'regionalApiCustomDomainAliasRecord', {
+          zone: zone,
+          recordName: props.env.region,
+          target: route53.RecordTarget.fromAlias(new targets.ApiGatewayDomain(regionalApiCustomDomain))
+        });
+
+        const regionalRecordHealthCheck = new route53.CfnHealthCheck(this, 'regionApiDomainHealthCheck', {
+          healthCheckConfig: {
+            type: "HTTPS",
+            port: 443,
+            enableSni: true,
+            fullyQualifiedDomainName: props.env.region.concat("." + props.domainName),
+            resourcePath: "/health"
+          },
+          healthCheckTags: [
+            {
+              key: "Name",
+              value: "API Network Health Check ".concat(props.env.region)
+            }
+          ]
+        });
+
+        const globalApiRecord = new route53.CfnRecordSet(this, 'globalApiDomain', {
+          name: props.subDomainName.concat(props.domainName + "."),
+          type: "A",
+          aliasTarget: {
+            dnsName: restApiCustomDomain.domainNameAliasDomainName,
+            hostedZoneId: restApiCustomDomain.domainNameAliasHostedZoneId 
+          }, 
+          healthCheckId: regionalRecordHealthCheck.getAtt("HealthCheckId").toString(),
+          hostedZoneId: zone.hostedZoneId,
+          region: props.env.region,
+          setIdentifier: "api-" + props.env.region
+        });
       }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.finishGlobalTableName + "\n Error: " + error));
     }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.initGlobalTableName + "\n Error: " + error));
   }

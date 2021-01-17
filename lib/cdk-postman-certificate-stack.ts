@@ -10,6 +10,7 @@ interface CdkPostmanCertStackProps extends cdk.StackProps {
 
 export class CdkPostmanCertStack extends cdk.Stack {
   public readonly cert: acm.ICertificate;
+  public readonly regionalCert: acm.ICertificate;
 
   constructor(scope: cdk.Construct, id: string, props: CdkPostmanCertStackProps) {
     super(scope, id, props);
@@ -21,6 +22,12 @@ export class CdkPostmanCertStack extends cdk.Stack {
          validation: acm.CertificateValidation.fromDns(zone),
       });
 
+      const regionalCertificate = new acm.Certificate(this, 'regionalCertificate', {
+         domainName: props.env.region.concat("." + props.domainName),
+         validation: acm.CertificateValidation.fromDns(zone),
+      });
+
       this.cert = certificate;
+      this.regionalCert = regionalCertificate;
   }
 }

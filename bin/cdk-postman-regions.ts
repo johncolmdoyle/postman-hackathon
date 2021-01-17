@@ -18,9 +18,12 @@ hackathonConfig.replicationRegions.forEach(function (item, index) {
     domainName: hackathonConfig.domainName,
     subDomainName: hackathonConfig.subDomainName,
     certificate: regioncertstack.cert,
+    regionalCert: regioncertstack.regionalCert,
     initGlobalTableName: hackathonConfig.globalInitTableName,
     finishGlobalTableName: hackathonConfig.globalFinishTableName,
     lambdaContainerRegions: hackathonConfig.lambdaContainerRegions},);
+
+  regionstack.addDependency(regioncertstack);
 });
 
 cdk.Tags.of(app).add("app", "postman-hackathon");
