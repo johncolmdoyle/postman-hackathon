@@ -13,12 +13,14 @@ Need to have the following tools installed:
 
 The configuration is stored in `hackathon-config.ts`. The following values are most important:
 
-* `replicationRegions`      This is the list of regions that will have the application deployed to. The first region in the list will be the primary region for the DynamoDB Global Table. These are the only regions that support DynamoDB Global Tables.
-* `lambdaContainerRegions`  This is the list of regions that currently support container based Lambdas. Only in these regions will the Docker images be deployed to.
-* `globalInitTableName`     This is the DynamoDB Global table that will hold the user's initial request data.
-* `globalFinishTableName`   This is the DynamoDB Global table that will contain all the results from the replicated regions.
-* `domainName`              The domain name that will be used.
-* `subDomainName`           The sub domain used by the API Gateway and the Certificate Manager.
+Configuration | Description
+------------ | -------------
+replicationRegions|This is the list of regions that will have the application deployed to. The first region in the list will be the primary region for the DynamoDB Global Table. These are the only regions that support DynamoDB Global Tables.
+lambdaContainerRegions|This is the list of regions that currently support container based Lambdas. Only in these regions will the Docker images be deployed to.
+globalInitTableName|This is the DynamoDB Global table that will hold the user's initial request data.
+globalFinishTableName|This is the DynamoDB Global table that will contain all the results from the replicated regions.
+domainName|The domain name that will be used.
+subDomainName|he sub domain used by the API Gateway and the Certificate Manager.
 
 The remaining configurations on replication regions are not used and simply there to help deploy to different areas.
 
