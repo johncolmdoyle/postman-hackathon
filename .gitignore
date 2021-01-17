@@ -10,3 +10,6 @@ node_modules
 .cdk.staging
 cdk.out
 cdk.context.json
+
+# config
+hackathon-config.js

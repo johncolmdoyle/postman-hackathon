@@ -9,9 +9,11 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
+    "cdk-bootstrap-regions": "./bootstrap-cdk.js \"./bin/cdk-postman-global.ts\"",
     "deploy-global": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never",
     "deploy-replications": "cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never",
-    "deploy-all": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never && cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never"
+    "deploy-all": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never && cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never",
+    "destroy-all": "cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" destroy --all --force && cdk --app \"npx ts-node bin/cdk-postman-global.ts\" destroy --all --force"
   },
   "devDependencies": {
     "@aws-cdk/assert": "^1.85.0",
