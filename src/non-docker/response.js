@@ -53,7 +53,7 @@ exports.handler = async (event, context) => {
         item['response']['statusText'] = dataResponse[0].statusText;
         item['response']['headers'] = dataResponse[0].headers;
         item['response']['config'] = dataResponse[0].config;
-        item['response']['lantency'] = dataResponse[0].responseTime;
+        item['response']['latency'] = dataResponse[0].responseTime;
     }catch(err){
         console.error(err);
     }
