@@ -1,170 +1,662 @@
-openapi: "3.0.0"
+swagger: "2.0"
 info:
-  title: Simple API overview
-  version: 2.0.0
+  description: "This is the specification used for api-network.info."
+  version: "0.0.1"
+  title: "API Network Information"
+  contact:
+    email: "john.c.doyle@gmail.com"
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+host: "rest.api-network.info"
+basePath: "/"
+tags:
+- name: "networkTest"
+  description: "Operations around performing network tests."
+  externalDocs:
+    description: "Find out more"
+    url: "https://api-network.info"
+schemes:
+- "https"
 paths:
-  /:
-    get:
-      operationId: listVersionsv2
-      summary: List API versions
+  /tests:
+    post:
+      tags:
+      - "networkTest"
+      summary: "Create a network test"
+      description: ""
+      operationId: "addNetworkTest"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "Details on the targetted system that the network test will analyize."
+        required: true
+        schema:
+          $ref: "#/definitions/TestRequest"
       responses:
-        '200':
-          description: |-
-            200 response
-          content:
-            application/json:
-              examples: 
-                foo:
-                  value:
-                    {
-                      "versions": [
-                        {
-                            "status": "CURRENT",
-                            "updated": "2011-01-21T11:33:21Z",
-                            "id": "v2.0",
-                            "links": [
-                                {
-                                    "href": "http://127.0.0.1:8774/v2/",
-                                    "rel": "self"
-                                }
-                            ]
-                        },
-                        {
-                            "status": "EXPERIMENTAL",
-                            "updated": "2013-07-23T11:33:21Z",
-                            "id": "v3.0",
-                            "links": [
-                                {
-                                    "href": "http://127.0.0.1:8774/v3/",
-                                    "rel": "self"
-                                }
-                            ]
-                        }
-                      ]
-                    }
-        '300':
-          description: |-
-            300 response
-          content:
-            application/json: 
-              examples: 
-                foo:
-                  value: |
-                   {
-                    "versions": [
-                          {
-                            "status": "CURRENT",
-                            "updated": "2011-01-21T11:33:21Z",
-                            "id": "v2.0",
-                            "links": [
-                                {
-                                    "href": "http://127.0.0.1:8774/v2/",
-                                    "rel": "self"
-                                }
-                            ]
-                        },
-                        {
-                            "status": "EXPERIMENTAL",
-                            "updated": "2013-07-23T11:33:21Z",
-                            "id": "v3.0",
-                            "links": [
-                                {
-                                    "href": "http://127.0.0.1:8774/v3/",
-                                    "rel": "self"
-                                }
-                            ]
-                        }
-                    ]
-                   }
-  /v2:
+        "200":
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/TestDetails"
+        "405":
+          description: "Invalid input"
+      security:
+      - api_key: []
+  /tests/{testId}:
     get:
-      operationId: getVersionDetailsv2
-      summary: Show API version details
+      tags:
+      - "networkTest"
+      summary: "Retrieve network test results by ID."
+      description: "Returns a network test result."
+      operationId: "getNetworkTestById"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "testId"
+        in: "path"
+        description: "ID of the network test"
+        required: true
+        type: "string"
       responses:
-        '200':
-          description: |-
-            200 response
-          content:
-            application/json: 
-              examples:
-                foo:
-                  value:
-                    {
-                      "version": {
-                        "status": "CURRENT",
-                        "updated": "2011-01-21T11:33:21Z",
-                        "media-types": [
-                          {
-                              "base": "application/xml",
-                              "type": "application/vnd.openstack.compute+xml;version=2"
-                          },
-                          {
-                              "base": "application/json",
-                              "type": "application/vnd.openstack.compute+json;version=2"
-                          }
-                        ],
-                        "id": "v2.0",
-                        "links": [
-                          {
-                              "href": "http://127.0.0.1:8774/v2/",
-                              "rel": "self"
-                          },
-                          {
-                              "href": "http://docs.openstack.org/api/openstack-compute/2/os-compute-devguide-2.pdf",
-                              "type": "application/pdf",
-                              "rel": "describedby"
-                          },
-                          {
-                              "href": "http://docs.openstack.org/api/openstack-compute/2/wadl/os-compute-2.wadl",
-                              "type": "application/vnd.sun.wadl+xml",
-                              "rel": "describedby"
-                          },
-                          {
-                            "href": "http://docs.openstack.org/api/openstack-compute/2/wadl/os-compute-2.wadl",
-                            "type": "application/vnd.sun.wadl+xml",
-                            "rel": "describedby"
-                          }
-                        ]
-                      }
-                    }
-        '203':
-          description: |-
-            203 response
-          content:
-            application/json: 
-              examples:
-                foo:
-                  value:
-                    {
-                      "version": {
-                        "status": "CURRENT",
-                        "updated": "2011-01-21T11:33:21Z",
-                        "media-types": [
-                          {
-                              "base": "application/xml",
-                              "type": "application/vnd.openstack.compute+xml;version=2"
-                          },
-                          {
-                              "base": "application/json",
-                              "type": "application/vnd.openstack.compute+json;version=2"
-                          }
-                        ],
-                        "id": "v2.0",
-                        "links": [
-                          {
-                              "href": "http://23.253.228.211:8774/v2/",
-                              "rel": "self"
-                          },
-                          {
-                              "href": "http://docs.openstack.org/api/openstack-compute/2/os-compute-devguide-2.pdf",
-                              "type": "application/pdf",
-                              "rel": "describedby"
-                          },
-                          {
-                              "href": "http://docs.openstack.org/api/openstack-compute/2/wadl/os-compute-2.wadl",
-                              "type": "application/vnd.sun.wadl+xml",
-                              "rel": "describedby"
-                          }
-                        ]
-                      }
-                    }
+        "200":
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/NetworkTest"
+        "400":
+          description: "Invalid ID supplied"
+        "404":
+          description: "Network Test not found"
+      security:
+      - api_key: []
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "api_key"
+    in: "header"
+definitions:
+  TestRequest:
+    type: "object"
+    required:
+    - "apiUrl"
+    properties:
+      apiUrl:
+        type: "string"
+        example: "https://cnn.com"
+  TestDetails:
+    type: "object"
+    properties:
+      initId:
+        type: "string"
+        description: "UUID"
+        example: "879bae67-f8ae-4b77-af1d-c0b013a7e5af"
+      apiUrl:
+        type: "string"
+        example: "https://cnn.com"
+      createdAt:
+        type: "integer"
+        format: "int32"
+        example: 1610993138
+      ttl:
+        type: "integer"
+        format: "int32"
+        example: 1611165938
+  LookupData:
+    type: "object"
+    properties:
+      type:
+        type: "string"
+        example: "A"
+      ttl:
+        type: "integer"
+        format: "int32"
+        example: 60
+      address:
+        type: "string"
+        example: "151.101.1.67"
+      priority:
+        type: "integer"
+        format: "int32"
+        example: 10
+      exchange:
+        type: "string"
+        example: "mxb-00241e02.gslb.pphosted.com"
+      entries:
+        type: "array"
+        items:
+          type: "string"
+          example: "186844776-4422028"
+      minttl:
+        type: "integer"
+        format: "int32"
+        example: 86400
+      hostmaster:
+        type: "string"
+        example: "awsdns-hostmaster.amazon.com"
+      serial:
+        type: "integer"
+        format: "int32"
+        example: 1
+      expire:
+        type: "integer"
+        format: "int32"
+        example: 1209600
+      refresh:
+        type: "integer"
+        format: "int32"
+        example: 7200
+      nsname:
+        type: "string"
+        example: "ns-47.awsdns-05.com"
+      retry:
+        type: "integer"
+        format: "int32"
+        example: 900
+      family:
+        type: "integer"
+        format: "int32"
+        example: 4
+  NSLookup:
+    type: "object"
+    properties:
+      "resolveAny":
+        type: "array"
+        items:
+          $ref: "#/definitions/LookupData"
+      resolve4:
+        type: "array"
+        items:
+          $ref: "#/definitions/LookupData"
+      resolve6:
+        type: "array"
+        items:
+          $ref: "#/definitions/LookupData"
+      lookup:
+        type: "array"
+        items:
+          $ref: "#/definitions/LookupData"
+  ResponseConfigHeaders:
+    type: "object"
+    properties:
+      "Accept":
+        type: "string"
+        example: "application/json, text/plain, */*"
+      "User-Agent":
+        type: "string"
+        example: "axios/0.21.1"
+  ResponseConfigMeta:
+    type: "object"
+    properties:
+      "requestStartedAt": 
+        type: "integer"
+        format: "int32"
+        example: 1610926719721
+  ResponseConfig:
+    type: "object"
+    properties:
+      headers:
+        $ref: "#/definitions/ResponseConfigHeaders"
+      meta:
+        $ref: "#/definitions/ResponseConfigMeta"
+      "maxContentLength":
+        type: "integer"
+        format: "int32"
+        example: -1
+      "method":
+        type: "string"
+        example: "get"
+      "transformRequest":
+        type: "array"
+        items:
+          type: "string"
+      "xsrfHeaderName":
+        type: "string"
+        example: "X-XSRF-TOKEN"
+      "url":
+        type: "string"
+        example: "https://cnn.com"
+      "transformResponse":
+        type: "array"
+        items:
+          type: "string"
+      "timeout":
+        type: "integer"
+        format: "int32"
+        example: 0
+      "xsrfCookieName":
+        type: "string"
+        example: "XSRF-TOKEN"
+      "maxBodyLength":
+        type: "integer"
+        format: "int32"
+        example: -1
+  ResponseHeader:
+    type: "object"
+    properties:
+      "date":
+        type: "string"
+        example: "Sun, 17 Jan 2021 23:38:40 GMT"
+      "content-length":
+        type: "string"
+        example: "1140351"
+      "vary":
+        type: "string"
+        example: "x-fastab-0, Accept-Encoding"
+      "x-servedbyhost":
+        type: "string"
+        example: "::ffff:127.0.0.1"
+      "x-served-by":
+        type: "string"
+        example: "cache-dca17774-DCA, cache-hnd18737-HND"
+      "x-cache-hits":
+        type: "string"
+        example: "1, 22"
+      "via":
+        type: "string"
+        example: "1.1 varnish, 1.1 varnish"
+      "access-control-allow-origin":
+        type: "string"
+        example: "*"
+      "set-cookie": 
+        type: "array"
+        items:
+          type: "string"
+          example:
+            ["countryCode=JP; Domain=.cnn.com; Path=/; SameSite=Lax","stateCode=13; Domain=.cnn.com; Path=/; SameSite=Lax","geoData=tokyo|13|100-0001|JP|AS|900|broadband|35.680|139.750; Domain=.cnn.com; Path=/; SameSite=Lax","FastAB=0=1782,1=0641,2=2175,3=2492,4=0179,5=6717,6=9845,7=6040,8=7762,9=0663; Domain=.cnn.com; Path=/; Expires=Sat Jul 01 2023 00:00:00 GMT; SameSite=Lax"]
+      "content-security-policy":
+        type: "string"
+        example: "default-src 'self' blob: https://*.cnn.com:* http://*.cnn.com:* *.cnn.io:* *.cnn.net:* *.turner.com:* *.turner.io:* *.ugdturner.com:* courageousstudio.com *.vgtf.net:*; script-src 'unsafe-eval' 'unsafe-inline' 'self' *; style-src 'unsafe-inline' 'self' blob: *; child-src 'self' blob: *; frame-src 'self' *; object-src 'self' *; img-src 'self' data: blob: *; media-src 'self' data: blob: *; font-src 'self' data: *; connect-src 'self' *; frame-ancestors 'self' https://*.cnn.com:* http://*.cnn.com:* https://*.cnn.io:* http://*.cnn.io:* *.turner.com:* courageousstudio.com;"
+      "x-content-type-options":
+        type: "string"
+        example: "nosniff"
+      "x-xss-protection":
+        type: "string"
+        example: "1; mode=block"
+      "x-timer":
+        type: "string"
+        example: "S1610926720.482593,VS0,VE0"
+      "connection":
+        type: "string"
+        example: "close"
+      "content-type":
+        type: "string"
+        example: "text/html; charset=utf-8"
+      "x-cache":
+        type: "string"
+        example: "HIT, HIT"
+      "cache-control":
+        type: "string"
+        example: "max-age=60"
+      "accept-ranges":
+        type: "string"
+        example: "bytes"
+      "age":
+        type: "string"
+        example: "2221"
+  ResponseData:
+    type: "object"
+    properties:
+      lantency:
+        type: "integer"
+        format: "int32"
+        example: 1140
+      headers:
+        $ref: "#/definitions/ResponseHeader"
+      config:
+        $ref: "#/definitions/ResponseConfig"
+      "statusText":
+        type: "string"
+        example: "OK"
+      status: 
+        type: "integer"
+        format: "int32"
+        example: 200
+  Response:
+    type: "object"
+    properties:
+      response:
+        $ref: "#/definitions/ResponseData"
+  WhoisTechInformation:
+    type: "object"
+    properties: 
+      "Tech Country":
+        type: "string"
+        example: "US"
+      "Tech Fax":
+        type: "string"
+        example: "+1.4048271593"
+      "Tech Phone Ext":
+        type: "string"
+      "Tech Organization":
+        type: "string"
+        example: "Turner Broadcasting System, Inc."
+      "Tech Name":
+        type: "string"
+        example: "TBS Server Operations"
+      "Tech Fax Ext":
+        type: "string"
+        example: ""
+      "Tech Street":
+        type: "string"
+        example: "One CNN Center"
+      "Tech City":
+        type: "string"
+        example: "Atlanta"
+      "Tech Postal Code":
+        type: "string"
+        example: "30303"
+      "Tech Phone":
+        type: "string"
+        example: "+1.4048275000"
+      "Tech Email":
+        type: "string"
+        example: "hostmaster@turner.com"
+      "Tech State/Province":
+        type: "string"
+        example: "GA"
+  WhoisDNSSECInformation:
+    type: "object"
+    properties:
+      DNSSEC:
+        type: "string"
+        example: "unsigned"
+  WhoisRegistrarInformation:
+    type: "object"
+    properties:
+      "Registrar Registration Expiration Date":
+        type: "string"
+        example: "2026-09-21T000000.000-0400"
+      "Registrar Abuse Contact Email":
+        type: "string"
+        example: "domainabuse@cscglobal.com"
+      "Registrar URL":
+        type: "string"
+        example: "www.cscprotectsbrands.com"
+      "Registrar Abuse Contact Phone":
+        type: "string"
+        example: "+1.8887802723"
+      "Registrar IANA ID":
+        type: "string"
+        example: "299"
+      "Registry Admin ID":
+        type: "string"
+      "Registry Tech ID":
+        type: "string"
+      "Creation Date":
+        type: "string"
+        example: "1993-09-22T000000.000-0400"
+      "Registrar WHOIS Server":
+        type: "string"
+        example: "whois.corporatedomains.com"
+      "Registrar":
+        type: "string"
+        example: "CSC CORPORATE DOMAINS, INC."
+      "Registry Registrant ID":
+        type: "string"
+      "Registry Domain ID":
+        type: "string"
+        example: "3269879_DOMAIN_COM-VRSN"
+      "Updated Date":
+        type: "string"
+        example: "2020-10-20T130944Z"
+  WhoisAdminInformation:
+    type: "object"
+    properties:
+      "Admin Country": 
+        type: "string"
+        example: "US"
+      "Admin Name": 
+        type: "string"
+        example: "Domain Name Manager"
+      "Admin Email": 
+        type: "string"
+        example: "tmgroup@turner.com"
+      "Admin Postal Code": 
+        type: "string"
+        example: "30303"
+      "Admin State/Province": 
+        type: "string"
+        example: "GA"
+      "Admin Fax Ext": 
+        type: "string"
+      "Admin Phone Ext": 
+        type: "string"
+      "Admin Organization": 
+        type: "string"
+        example: "Turner Broadcasting System, Inc."
+      "Admin Fax": 
+        type: "string"
+        example: "+1.4048271995"
+      "Admin City": 
+        type: "string"
+        example: "Atlanta"
+      "Admin Phone": 
+        type: "string"
+        example: "+1.4048275000"
+      "Admin Street": 
+        type: "string"
+        example: "One CNN Center"
+  WhoisRegistrantInformation:
+    type: "object"
+    properties:
+      "Registrant Name": 
+        type: "string"
+        example: "Domain Name Manager"
+      "Registrant Fax": 
+        type: "string"
+        example: "+1.4048271995"
+      "Registrant Fax Ext": 
+        type: "string"
+        example: ""
+      "Registrant Email": 
+        type: "string"
+        example: "tmgroup@turner.com"
+      "Registrant Postal Code": 
+        type: "string"
+        example: "30303"
+      "Registrant Phone": 
+        type: "string"
+        example: "+1.4048275000"
+      "Registrant Street": 
+        type: "string"
+        example: "One CNN Center"
+      "Registrant Phone Ext": 
+        type: "string"
+        example: ""
+      "Registrant Country": 
+        type: "string"
+        example: "US"
+      "Registrant State/Province": 
+        type: "string"
+        example: "GA"
+      "Registrant City": 
+        type: "string"
+        example: "Atlanta"
+      "Registrant Organization": 
+        type: "string"
+        example: "Turner Broadcasting System, Inc."
+  DomainNameStatusData:
+    type: "object"
+    properties:
+      ref:
+        type: "string"
+        example: "http//www.icann.org/epp#clientTransferProhibited"
+      code:
+        type: "string"
+        example: "clientTransferProhibited"
+  DomainNameStatus:
+    type: "array"
+    items:
+      $ref: "#/definitions/DomainNameStatusData"
+  WhoisDomainNameResponse:
+    type: "object"
+    properties:
+      "Domain Name":
+        type: "string"
+        example: "cnn.com"
+      status:
+        $ref: "#/definitions/DomainNameStatus"
+  WhoisResponse:
+    type: "object"
+    properties:
+      tech:
+        $ref: "#/definitions/WhoisTechInformation"
+      "dnsSec":
+        $ref: "#/definitions/WhoisDNSSECInformation"
+      registrar:
+        $ref: "#/definitions/WhoisRegistrarInformation"
+      "domainName":
+        $ref: "#/definitions/WhoisDomainNameResponse"
+      "nameServer":
+        type: "array"
+        items:
+          type: "string"
+          example:
+            ["ns-1086.awsdns-07.org","ns-1630.awsdns-11.co.uk","ns-47.awsdns-05.com","ns-576.awsdns-08.net"]
+      admin:
+        $ref: "#/definitions/WhoisAdminInformation"
+      registrant:
+        $ref: "#/definitions/WhoisRegistrantInformation"
+  Whois:
+    type: "object"
+    properties:
+      whois:
+        $ref: "#/definitions/WhoisResponse"
+  AWSNetworkDetails:
+    type: "object"
+    properties:
+      network_border_group:
+        type: "string"
+        example: "ap-northeast-1"
+      ip_prefix:
+        type: "string"
+        example: "54.150.0.0/16"
+      region:
+        type: "string"
+        example: "ap-northeast-1"
+      service:
+        type: "string"
+        example: "AMAZON"
+  TracerouteHop:
+    type: "object"
+    properties:
+      hop:
+        type: "integer"
+        format: "int32"
+        example: 1
+      rrt:
+        type: "integer"
+        format: "int32"
+        example: 0.569
+      ip:
+        type: "string"
+        example: "54.150.128.77"
+      aws:
+        $ref: "#/definitions/AWSNetworkDetails"
+  TracerouteMap:
+    type: "array"
+    items:
+      $ref: "#/definitions/TracerouteHop"
+  Traceroute:
+    type: "object"
+    properties:
+      traceroute:
+        $ref: "#/definitions/TracerouteMap"
+  DigAnswer:
+    type: "object"
+    properties:
+      type:
+        type: "string"
+        example: "A"
+      ttl:
+        type: "string"
+        example: "60"
+      class:
+        type: "string"
+        example: "IN"
+      value:
+        type: "string"
+        example: "151.101.129.67"
+      domain:
+        type: "string"
+        example: "cnn.com."
+  DigResponse:
+    type: "object"
+    properties:
+      server:
+        type: "string"
+        example: "169.254.78.1#53(169.254.78.1)"
+      datetime:
+        type: "string"
+        format: "date-time"
+      question:
+        type: "array"
+        items:
+          type: "array"
+          items:
+            type: "string"
+            example: 
+              [";cnn.com.", "IN", "ANY"]
+      answer:
+        type: "array"
+        items:
+          $ref: "#/definitions/DigAnswer"
+      size:
+        type: "integer"
+        format: "int32"
+        example: 2766
+      header:
+        type: "array"
+        items:
+          type: "array"
+          items:
+            type: "string"
+            example:
+              ["; <<>> DiG 9.11.5-P4-5.1+deb10u2-Debian <<>> cnn.com ANY", ";; global options: +cmd", ";; Got answer:", ";; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 7126", ";; flags: qr rd ra; QUERY: 1, ANSWER: 59, AUTHORITY: 0, ADDITIONAL: 0"]
+      time:
+        type: "integer"
+        format: "int32"
+        example: 11
+  Dig:
+    type: "object"
+    properties:
+      dig:
+        $ref: "#/definitions/DigResponse"
+  NetworkTestRegion:
+    type: "object"
+    properties:
+      initId:
+        type: "string"
+        example: "f4d2ad7a-428d-4a73-a713-05a93d0e9035"
+      region:
+        type: "string"
+        example: "ap-northeast-1"
+      createdAt:
+        type: "integer"
+        format: "int32"
+        example: 1610926766
+      ttl:
+        type: "integer"
+        format: "int32"
+        example: 1611099566
+      dig:
+        $ref: "#/definitions/Dig"
+      traceroute:
+        $ref: "#/definitions/Traceroute"
+      whois:
+        $ref: "#/definitions/Whois"
+      response:
+        $ref: "#/definitions/Response"
+      nslookup:
+        $ref: "#/definitions/NSLookup"
+  NetworkTest:
+    type: "array"
+    items:
+      $ref: "#/definitions/NetworkTestRegion"
+      
+externalDocs:
+  description: "Find out more about api-network"
+  url: "https://api-network.info"
