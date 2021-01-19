@@ -10,8 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.828.0",
-    "https": "^1.0.0",
     "ip-range-check": "^0.2.0",
+    "node-fetch": "^2.6.1",
     "traceroute": "^1.0.0"
   }
 }
