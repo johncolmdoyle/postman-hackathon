@@ -9,6 +9,8 @@ const db = new AWS.DynamoDB.DocumentClient();
 const TABLE_NAME = process.env.TABLE_NAME || '';
 const PRIMARY_KEY = process.env.PRIMARY_KEY || '';
 const SORT_KEY = process.env.SORT_KEY || '';
+const GEOIP_TABLE_NAME = process.env.GEOIP_TABLE_NAME || '';
+const GEOIP_PRIMARY_KEY = process.env.GEOIP_PRIMARY_KEY || '';
 
 const RESERVED_RESPONSE = `Error: You're using AWS reserved keywords as attributes`,
   DYNAMODB_EXECUTION_ERROR = `Error: Execution update, caused a Dynamodb error, please take a look at your CloudWatch Logs.`;
@@ -80,6 +82,31 @@ exports.handler = async (event, context) => {
 
             hopObj['hop'] = hopCount;
             hopObj['ip'] = Object.keys(value)[0];
+
+            // Lets get the Lat/Long of the IP
+            const keyData = {};
+            keyData[GEOIP_PRIMARY_KEY] = Object.keys(value)[0];
+
+            const params = {
+              TableName: GEOIP_TABLE_NAME,
+              Key: keyData
+            };
+
+            try {
+              let dataSet = await db.get(params).promise();
+
+              if(dataSet.hasOwnProperty("Item")) {
+                if(dataSet["Item"].hasOwnProperty("latitude")) {
+                  hopObj['latitude'] = dataSet["Item"]["latitude"]["S"];
+                }
+                if(dataSet["Item"].hasOwnProperty("longitude")) {
+                  hopObj['longitude'] = dataSet["Item"]["longitude"]["S"];
+                }
+              }
+            } catch (dbError) {
+              console.log(JSON.stringify(dbError))
+            }
+
             hopObj['rrt'] = Object.keys(value).map(key => value[key][0])[0];
 
             const awsData = getAWSDetails(Object.keys(value)[0]);

@@ -58,6 +58,12 @@ export class CdkPostmanStack extends cdk.Stack {
           stream: dynamodb.StreamViewType.NEW_IMAGE
         });
 
+        const regionGeoIPTable = new dynamodb.Table(this, "regionGeoIPTable", {
+          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+          partitionKey: { name: "ip", type: dynamodb.AttributeType.STRING },
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        });
+
         // NODE LAMBDA
         const initiatorLambda = new lambda.Function(this, 'initiatorFunction', {
           code: new lambda.AssetCode('src/non-docker'),
@@ -191,7 +197,9 @@ export class CdkPostmanStack extends cdk.Stack {
             environment: {
               TABLE_NAME: regionTable.tableName,
               PRIMARY_KEY: 'initId',
-              SORT_KEY: 'functionCall'
+              SORT_KEY: 'functionCall',
+              GEOIP_TABLE_NAME: regionGeoIPTable.tableName,
+              GEOIP_PRIMARY_KEY: 'ip' 
             }
           });
 
@@ -208,6 +216,7 @@ export class CdkPostmanStack extends cdk.Stack {
           // PERMISSION
           regionTable.grantWriteData(tracerouteLambda);
           regionTable.grantWriteData(digLambda);
+          regionGeoIPTable.grantReadWriteData(tracerouteLambda);
 
           // DEAD LETTER
           const tracerouteDeadLetterQueue = new sqs.Queue(this, 'tracerouteDeadLetterQueue');
