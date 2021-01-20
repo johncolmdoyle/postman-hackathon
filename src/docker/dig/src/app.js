@@ -54,6 +54,7 @@ exports.handler = async (event, context) => {
     } catch (dbError) {
       const errorResponse = dbError.code === 'ValidationException' && dbError.message.includes('reserved keyword') ?
       DYNAMODB_EXECUTION_ERROR : RESERVED_RESPONSE;
+      console.log(errorResponse);
     }
   }
 }

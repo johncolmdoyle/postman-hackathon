@@ -140,8 +140,6 @@ exports.handler = async (event, context) => {
                   Item: ipData
                 };
 
-                console.log(JSON.stringify(geoParams));
-
                 try {
                   await db.put(geoParams).promise();
                 } catch (dbError) {

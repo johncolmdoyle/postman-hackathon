@@ -8,6 +8,7 @@ import * as acm from '@aws-cdk/aws-certificatemanager';
 import * as route53 from '@aws-cdk/aws-route53';
 import * as cloudfront from '@aws-cdk/aws-cloudfront';
 import * as targets from '@aws-cdk/aws-route53-targets';
+import * as iam from '@aws-cdk/aws-iam';
 import { DynamoEventSource, SqsDlq } from '@aws-cdk/aws-lambda-event-sources';
 import { DockerImageAsset } from '@aws-cdk/aws-ecr-assets';
 import { DynamoDB } from '@aws-sdk/client-dynamodb';
@@ -17,6 +18,8 @@ interface CdkPostmanStackProps extends cdk.StackProps {
   readonly regionalCert: acm.ICertificate;
   readonly initGlobalTableName: string;
   readonly finishGlobalTableName: string;
+  readonly apiKeyGlobalTableName: string;
+  readonly geoIpGlobalTableName: string;
   readonly domainName: string;
   readonly subDomainName: string;
   readonly lambdaContainerRegions: string[];
@@ -32,288 +35,372 @@ export class CdkPostmanStack extends cdk.Stack {
 
     let initGlobalTableInfoRequest = async () => await client.describeTable({ TableName: props.initGlobalTableName});
     let finishGlobalTableInfoRequest = async () => await client.describeTable({ TableName: props.finishGlobalTableName});
+    let apiKeyGlobalTableInfoRequest = async () => await client.describeTable({ TableName: props.apiKeyGlobalTableName});
+    let geoIpGlobalTableInfoRequest = async () => await client.describeTable({ TableName: props.geoIpGlobalTableName});
 
      // IMPORT EXISTING TABLES
     initGlobalTableInfoRequest().then( initGlobalTableInfoRequestResult => {
       finishGlobalTableInfoRequest().then( finishGlobalTableInfoRequestResult => {
+        apiKeyGlobalTableInfoRequest().then( apiKeyGlobalTableInfoRequestResult => {
+          geoIpGlobalTableInfoRequest().then( geoIpGlobalTableInfoRequestResult => {
 
-        // GLOBAL DYNAMODB
-        const initGlobalTable = dynamodb.Table.fromTableAttributes(this, "importInitGlobalTable", {
-          tableArn: initGlobalTableInfoRequestResult?.Table?.TableArn,
-          tableStreamArn: initGlobalTableInfoRequestResult?.Table?.LatestStreamArn
-        });
+            // GLOBAL DYNAMODB
+            const initGlobalTable = dynamodb.Table.fromTableAttributes(this, "importInitGlobalTable", {
+              tableArn: initGlobalTableInfoRequestResult?.Table?.TableArn,
+              tableStreamArn: initGlobalTableInfoRequestResult?.Table?.LatestStreamArn
+            });
 
-        const finishGlobalTable = dynamodb.Table.fromTableAttributes(this, "importFinishGlobalTable", {
-          tableArn: finishGlobalTableInfoRequestResult?.Table?.TableArn,
-          tableStreamArn: finishGlobalTableInfoRequestResult?.Table?.LatestStreamArn
-        });
+            const finishGlobalTable = dynamodb.Table.fromTableAttributes(this, "importFinishGlobalTable", {
+              tableArn: finishGlobalTableInfoRequestResult?.Table?.TableArn,
+              tableStreamArn: finishGlobalTableInfoRequestResult?.Table?.LatestStreamArn
+            });
 
-        // REGIONAL DYNAMODB
-        const regionTable = new dynamodb.Table(this, "regionTable", {
-          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, 
-          partitionKey: { name: "initId", type: dynamodb.AttributeType.STRING },
-          sortKey: { name: "functionCall", type: dynamodb.AttributeType.STRING },
-          timeToLiveAttribute: 'ttl',
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-          stream: dynamodb.StreamViewType.NEW_IMAGE
-        });
+            const apiKeyGlobalTable = dynamodb.Table.fromTableAttributes(this, "importApiGlobalTable", {
+              tableArn: apiKeyGlobalTableInfoRequestResult?.Table?.TableArn,
+              tableStreamArn: apiKeyGlobalTableInfoRequestResult?.Table?.LatestStreamArn
+            });
 
-        const regionGeoIPTable = new dynamodb.Table(this, "regionGeoIPTable", {
-          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-          partitionKey: { name: "ip", type: dynamodb.AttributeType.STRING },
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-        });
+            const geoIpGlobalTable = dynamodb.Table.fromTableAttributes(this, "importGeoIpGlobalTable", {
+              tableArn: geoIpGlobalTableInfoRequestResult?.Table?.TableArn,
+            });
 
-        // NODE LAMBDA
-        const initiatorLambda = new lambda.Function(this, 'initiatorFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'initiator.handler',
-          runtime: lambda.Runtime.NODEJS_10_X,
-          environment: {
-            TABLE_NAME: initGlobalTable.tableName,
-            PRIMARY_KEY: 'initId'
-          }
-        });
+            // REGIONAL DYNAMODB
+            const regionTable = new dynamodb.Table(this, "regionTable", {
+              billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, 
+              partitionKey: { name: "initId", type: dynamodb.AttributeType.STRING },
+              sortKey: { name: "functionCall", type: dynamodb.AttributeType.STRING },
+              timeToLiveAttribute: 'ttl',
+              removalPolicy: cdk.RemovalPolicy.DESTROY,
+              stream: dynamodb.StreamViewType.NEW_IMAGE
+            });
 
-        const nslookupLambda = new lambda.Function(this, 'nslookupFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'nslookup.handler',
-          runtime: lambda.Runtime.NODEJS_10_X,
-          environment: {
-            TABLE_NAME: regionTable.tableName,
-            PRIMARY_KEY: 'initId',
-            SORT_KEY: 'functionCall'
-          }
-        });
+            // NODE LAMBDA
+            const initiatorLambda = new lambda.Function(this, 'initiatorFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'initiator.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                TABLE_NAME: initGlobalTable.tableName,
+                PRIMARY_KEY: 'initId'
+              }
+            });
 
-        const whoisLambda = new lambda.Function(this, 'whoisFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'whois.handler',
-          runtime: lambda.Runtime.NODEJS_10_X,
-          environment: {
-            TABLE_NAME: regionTable.tableName,
-            PRIMARY_KEY: 'initId',
-            SORT_KEY: 'functionCall'
-          }
-        });
+            const nslookupLambda = new lambda.Function(this, 'nslookupFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'nslookup.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                TABLE_NAME: regionTable.tableName,
+                PRIMARY_KEY: 'initId',
+                SORT_KEY: 'functionCall'
+              }
+            });
 
-        const responseLambda = new lambda.Function(this, 'responseFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'response.handler',
-          runtime: lambda.Runtime.NODEJS_10_X,
-          timeout: cdk.Duration.seconds(120),
-          environment: {
-            TABLE_NAME: regionTable.tableName,
-            PRIMARY_KEY: 'initId',
-            SORT_KEY: 'functionCall'
-          }
-        });
+            const whoisLambda = new lambda.Function(this, 'whoisFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'whois.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                TABLE_NAME: regionTable.tableName,
+                PRIMARY_KEY: 'initId',
+                SORT_KEY: 'functionCall'
+              }
+            });
 
-        const finishedLambda = new lambda.Function(this, 'finishedFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'finished.handler',
-          runtime: lambda.Runtime.NODEJS_10_X,
-          environment: {
-            TABLE_NAME: finishGlobalTable.tableName,
-            PRIMARY_KEY: 'initId',
-            SORT_KEY: 'region'
-          }
-        });
+            const responseLambda = new lambda.Function(this, 'responseFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'response.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              timeout: cdk.Duration.seconds(120),
+              environment: {
+                TABLE_NAME: regionTable.tableName,
+                PRIMARY_KEY: 'initId',
+                SORT_KEY: 'functionCall'
+              }
+            });
 
-        const retrieveLambda = new lambda.Function(this, 'retrieveFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'retrieve.handler',
-          runtime: lambda.Runtime.NODEJS_10_X,
-          environment: {
-            TABLE_NAME: finishGlobalTable.tableName,
-            PRIMARY_KEY: 'initId'
-          }
-        });
+            const finishedLambda = new lambda.Function(this, 'finishedFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'finished.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                TABLE_NAME: finishGlobalTable.tableName,
+                PRIMARY_KEY: 'initId',
+                SORT_KEY: 'region'
+              }
+            });
 
-        const healthLambda = new lambda.Function(this, 'healthFunction', {
-          code: new lambda.AssetCode('src/non-docker'),
-          handler: 'health.handler',
-          runtime: lambda.Runtime.NODEJS_10_X
-        });
+            const retrieveLambda = new lambda.Function(this, 'retrieveFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'retrieve.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                TABLE_NAME: finishGlobalTable.tableName,
+                PRIMARY_KEY: 'initId'
+              }
+            });
 
-        // NODE LAMBDA PERMISSIONS
-        initGlobalTable.grantWriteData(initiatorLambda);
-        initGlobalTable.grantStreamRead(nslookupLambda);
-        initGlobalTable.grantStreamRead(whoisLambda);
-        initGlobalTable.grantStreamRead(retrieveLambda);
-        initGlobalTable.grantStreamRead(responseLambda);
-        regionTable.grantWriteData(nslookupLambda);
-        regionTable.grantWriteData(whoisLambda);
-        regionTable.grantWriteData(responseLambda);
-        finishGlobalTable.grantWriteData(finishedLambda);
-        finishGlobalTable.grantReadData(retrieveLambda);
+            const healthLambda = new lambda.Function(this, 'healthFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'health.handler',
+              runtime: lambda.Runtime.NODEJS_10_X
+            });
 
-        // DEADLETTER QUEUE
-        const nslookupDeadLetterQueue = new sqs.Queue(this, 'nslookUpDeadLetterQueue');
-        const whoisDeadLetterQueue = new sqs.Queue(this, 'whoisDeadLetterQueue');
-        const responseDeadLetterQueue = new sqs.Queue(this, 'responseDeadLetterQueue');
-        const finsihedDeadLetterQueue = new sqs.Queue(this, 'finishedDeadLetterQueue');
+            // NODE LAMBDA PERMISSIONS
+            initGlobalTable.grantWriteData(initiatorLambda);
+            initGlobalTable.grantStreamRead(nslookupLambda);
+            initGlobalTable.grantStreamRead(whoisLambda);
+            initGlobalTable.grantStreamRead(retrieveLambda);
+            initGlobalTable.grantStreamRead(responseLambda);
+            regionTable.grantWriteData(nslookupLambda);
+            regionTable.grantWriteData(whoisLambda);
+            regionTable.grantWriteData(responseLambda);
+            finishGlobalTable.grantWriteData(finishedLambda);
+            finishGlobalTable.grantReadData(retrieveLambda);
 
-        // DYNAMODB TRIGGER
-        nslookupLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
-          startingPosition: lambda.StartingPosition.TRIM_HORIZON,
-          batchSize: 5,
-          bisectBatchOnError: true,
-          onFailure: new SqsDlq(nslookupDeadLetterQueue),
-          retryAttempts: 10
-        }));
+            // DEADLETTER QUEUE
+            const nslookupDeadLetterQueue = new sqs.Queue(this, 'nslookUpDeadLetterQueue');
+            const whoisDeadLetterQueue = new sqs.Queue(this, 'whoisDeadLetterQueue');
+            const responseDeadLetterQueue = new sqs.Queue(this, 'responseDeadLetterQueue');
+            const finsihedDeadLetterQueue = new sqs.Queue(this, 'finishedDeadLetterQueue');
 
-        whoisLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
-          startingPosition: lambda.StartingPosition.TRIM_HORIZON,
-          batchSize: 5,
-          bisectBatchOnError: true,
-          onFailure: new SqsDlq(whoisDeadLetterQueue),
-          retryAttempts: 10
-        }));
+            // DYNAMODB TRIGGER
+            nslookupLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+              startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+              batchSize: 5,
+              bisectBatchOnError: true,
+              onFailure: new SqsDlq(nslookupDeadLetterQueue),
+              retryAttempts: 10
+            }));
 
-        responseLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
-          startingPosition: lambda.StartingPosition.TRIM_HORIZON,
-          batchSize: 5,
-          bisectBatchOnError: true,
-          onFailure: new SqsDlq(responseDeadLetterQueue),
-          retryAttempts: 10
-        }));
+            whoisLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+              startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+              batchSize: 5,
+              bisectBatchOnError: true,
+              onFailure: new SqsDlq(whoisDeadLetterQueue),
+              retryAttempts: 10
+            }));
 
-        finishedLambda.addEventSource(new DynamoEventSource(regionTable, {
-          startingPosition: lambda.StartingPosition.TRIM_HORIZON,
-          batchSize: 5,
-          bisectBatchOnError: true,
-          onFailure: new SqsDlq(finsihedDeadLetterQueue),
-          retryAttempts: 10
-        }));
+            responseLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+              startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+              batchSize: 5,
+              bisectBatchOnError: true,
+              onFailure: new SqsDlq(responseDeadLetterQueue),
+              retryAttempts: 10
+            }));
 
-        // DOCKER LAMBDA
-        // only deploy to regions that support containers
-        if(props.lambdaContainerRegions.indexOf(props.env.region) >= 0) {
-          // LAMBDA
-          const tracerouteLambda = new lambda.DockerImageFunction(this, 'tracerouteFunction', {
-            code: lambda.DockerImageCode.fromImageAsset('src/docker/traceroute'),
-            timeout: cdk.Duration.seconds(120),
-            environment: {
-              TABLE_NAME: regionTable.tableName,
-              PRIMARY_KEY: 'initId',
-              SORT_KEY: 'functionCall',
-              GEOIP_TABLE_NAME: regionGeoIPTable.tableName,
-              GEOIP_PRIMARY_KEY: 'ip' 
+            finishedLambda.addEventSource(new DynamoEventSource(regionTable, {
+              startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+              batchSize: 5,
+              bisectBatchOnError: true,
+              onFailure: new SqsDlq(finsihedDeadLetterQueue),
+              retryAttempts: 10
+            }));
+
+            // DOCKER LAMBDA
+            // only deploy to regions that support containers
+            if(props.lambdaContainerRegions.indexOf(props.env.region) >= 0) {
+              // LAMBDA
+              const tracerouteLambda = new lambda.DockerImageFunction(this, 'tracerouteFunction', {
+                code: lambda.DockerImageCode.fromImageAsset('src/docker/traceroute'),
+                timeout: cdk.Duration.seconds(120),
+                environment: {
+                  TABLE_NAME: regionTable.tableName,
+                  PRIMARY_KEY: 'initId',
+                  SORT_KEY: 'functionCall',
+                  GEOIP_TABLE_NAME: geoIpGlobalTable.tableName,
+                  GEOIP_PRIMARY_KEY: 'ip' 
+                }
+              });
+
+              const digLambda = new lambda.DockerImageFunction(this, 'digFunction', {
+                code: lambda.DockerImageCode.fromImageAsset('src/docker/dig'),
+                timeout: cdk.Duration.seconds(120),
+                environment: {
+                  TABLE_NAME: regionTable.tableName,
+                  PRIMARY_KEY: 'initId',
+                  SORT_KEY: 'functionCall'
+                }
+              });
+
+              // PERMISSION
+              initGlobalTable.grantStreamRead(tracerouteLambda);
+              initGlobalTable.grantStreamRead(digLambda);
+              regionTable.grantWriteData(tracerouteLambda);
+              regionTable.grantWriteData(digLambda);
+              geoIpGlobalTable.grantReadWriteData(tracerouteLambda);
+
+              // DEAD LETTER
+              const tracerouteDeadLetterQueue = new sqs.Queue(this, 'tracerouteDeadLetterQueue');
+              const digDeadLetterQueue = new sqs.Queue(this, 'digDeadLetterQueue');
+
+              // DYNAMODB TRIGGER
+              tracerouteLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+                startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+                batchSize: 5,
+                bisectBatchOnError: true,
+                onFailure: new SqsDlq(tracerouteDeadLetterQueue),
+                retryAttempts: 10
+              }));
+
+              digLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
+                startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+                batchSize: 5,
+                bisectBatchOnError: true,
+                onFailure: new SqsDlq(digDeadLetterQueue),
+                retryAttempts: 10
+              }));
             }
-          });
 
-          const digLambda = new lambda.DockerImageFunction(this, 'digFunction', {
-            code: lambda.DockerImageCode.fromImageAsset('src/docker/dig'),
-            timeout: cdk.Duration.seconds(120),
-            environment: {
-              TABLE_NAME: regionTable.tableName,
-              PRIMARY_KEY: 'initId',
-              SORT_KEY: 'functionCall'
-            }
-          });
+            // API
+            const api = new apigateway.RestApi(this, 'networkApi', {
+              restApiName: 'API Network Service',
+            });
+ 
+            const regionalApiCustomDomain = new apigateway.DomainName(this, 'regionalApiCustomDomain', {
+              domainName: props.env.region.concat("." + props.domainName),
+              certificate: props.regionalCert
+            });
 
-          // PERMISSION
-          regionTable.grantWriteData(tracerouteLambda);
-          regionTable.grantWriteData(digLambda);
-          regionGeoIPTable.grantReadWriteData(tracerouteLambda);
+            regionalApiCustomDomain.addBasePathMapping(api);
 
-          // DEAD LETTER
-          const tracerouteDeadLetterQueue = new sqs.Queue(this, 'tracerouteDeadLetterQueue');
-          const digDeadLetterQueue = new sqs.Queue(this, 'digDeadLetterQueue');
+            const restApiCustomDomain = new apigateway.DomainName(this, 'restApiCustomDomain', {
+              domainName: props.subDomainName.concat(props.domainName),
+              certificate: props.certificate
+            });
 
-          // DYNAMODB TRIGGER
-          tracerouteLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
-            startingPosition: lambda.StartingPosition.TRIM_HORIZON,
-            batchSize: 5,
-            bisectBatchOnError: true,
-            onFailure: new SqsDlq(tracerouteDeadLetterQueue),
-            retryAttempts: 10
-          }));
+            restApiCustomDomain.addBasePathMapping(api);
 
-          digLambda.addEventSource(new DynamoEventSource(initGlobalTable, {
-            startingPosition: lambda.StartingPosition.TRIM_HORIZON,
-            batchSize: 5,
-            bisectBatchOnError: true,
-            onFailure: new SqsDlq(digDeadLetterQueue),
-            retryAttempts: 10
-          }));
-        }
+            // API Calls
+            const tests = api.root.addResource('tests');
 
-        // API
-        const api = new apigateway.RestApi(this, 'networkApi', {
-          restApiName: 'API Network Service',
-        });
+            const initiatorIntegration = new apigateway.LambdaIntegration(initiatorLambda);
+            const createTestMethod = tests.addMethod('POST', initiatorIntegration);
+            addCorsOptions(tests);
 
-        const regionalApiCustomDomain = new apigateway.DomainName(this, 'regionalApiCustomDomain', {
-          domainName: props.env.region.concat("." + props.domainName),
-          certificate: props.regionalCert
-        });
+            const testId = tests.addResource('{id}');
+            const retrieveIntegration = new apigateway.LambdaIntegration(retrieveLambda);
+            testId.addMethod('GET', retrieveIntegration);
+            addCorsOptions(testId);
 
-        regionalApiCustomDomain.addBasePathMapping(api);
+            // Usage Plans
+            const freeUsagePlan = api.addUsagePlan('freeUsagePlan', {
+              name: 'Api-Network-Free',
+              quota: {
+                limit: 10,
+                period: apigateway.Period.DAY
+              },
+              throttle: {
+                rateLimit: 10,
+                burstLimit: 2
+              }
+            });
 
-        const restApiCustomDomain = new apigateway.DomainName(this, 'restApiCustomDomain', {
-          domainName: props.subDomainName.concat(props.domainName),
-          certificate: props.certificate
-        });
+            freeUsagePlan.addApiStage({
+              stage: api.deploymentStage,
+              throttle: [{
+                method: createTestMethod,
+                throttle: {
+                  rateLimit: 1,
+                  burstLimit: 2
+                }
+              }]
+            });
 
-        restApiCustomDomain.addBasePathMapping(api);
+            // API Key Global Import
+            const apiKeyLambda = new lambda.Function(this, 'apiKeyFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'apikey.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                USAGE_PLAN_ID: freeUsagePlan.usagePlanId,
+              }
+            });
 
-        // API Calls
-        const tests = api.root.addResource('tests');
+            // Permissions
+            apiKeyGlobalTable.grantStreamRead(apiKeyLambda);
+            apiKeyLambda.addToRolePolicy(
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                resources: ['arn:aws:apigateway:' + props.env.region + '::/tags/arn%3Aaws%3Aapigateway%3A' + props.env.region + '%3A%3A%2Fapikeys%2F*'],
+                actions: ['apigateway:PUT']
+              }) 
+            );
 
-        const initiatorIntegration = new apigateway.LambdaIntegration(initiatorLambda);
-        tests.addMethod('POST', initiatorIntegration);
-        addCorsOptions(tests);
+            apiKeyLambda.addToRolePolicy(
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                resources: ['arn:aws:apigateway:' + props.env.region + '::/apikeys'],
+                actions: ['apigateway:POST']
+              })
+            );
 
-        const testId = tests.addResource('{id}');
-        const retrieveIntegration = new apigateway.LambdaIntegration(retrieveLambda);
-        testId.addMethod('GET', retrieveIntegration);
-        addCorsOptions(testId);
 
-        // API Health
-        const health = api.root.addResource('health');
-        const healthIntegration = new apigateway.LambdaIntegration(healthLambda);
-        health.addMethod('GET', healthIntegration);
-        addCorsOptions(health);
+            apiKeyLambda.addToRolePolicy(
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                resources: ['arn:aws:apigateway:' + props.env.region + '::/usageplans/' + freeUsagePlan.usagePlanId + '/keys'],
+                actions: ['apigateway:POST']
+              })
+            );
 
-        // ROUTE 53
-        const zone = route53.HostedZone.fromLookup(this, "zone", { domainName: props.domainName });
+            // DEAD LETTER
+            const apiKeyDeadLetterQueue = new sqs.Queue(this, 'apiKeyDeadLetterQueue');
 
-        const regionalApiRecord = new route53.ARecord(this, 'regionalApiCustomDomainAliasRecord', {
-          zone: zone,
-          recordName: props.env.region,
-          target: route53.RecordTarget.fromAlias(new targets.ApiGatewayDomain(regionalApiCustomDomain))
-        });
+            // DYNAMODB TRIGGER
+            apiKeyLambda.addEventSource(new DynamoEventSource(apiKeyGlobalTable, {
+              startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+              batchSize: 5,
+              bisectBatchOnError: true,
+              onFailure: new SqsDlq(apiKeyDeadLetterQueue),
+              retryAttempts: 10
+            }));
 
-        const regionalRecordHealthCheck = new route53.CfnHealthCheck(this, 'regionApiDomainHealthCheck', {
-          healthCheckConfig: {
-            type: "HTTPS",
-            port: 443,
-            enableSni: true,
-            fullyQualifiedDomainName: props.env.region.concat("." + props.domainName),
-            resourcePath: "/health"
-          },
-          healthCheckTags: [
-            {
-              key: "Name",
-              value: "API Network Health Check ".concat(props.env.region)
-            }
-          ]
-        });
+            // API Health
+            const health = api.root.addResource('health');
+            const healthIntegration = new apigateway.LambdaIntegration(healthLambda);
+            health.addMethod('GET', healthIntegration);
+            addCorsOptions(health);
 
-        const globalApiRecord = new route53.CfnRecordSet(this, 'globalApiDomain', {
-          name: props.subDomainName.concat(props.domainName + "."),
-          type: "A",
-          aliasTarget: {
-            dnsName: restApiCustomDomain.domainNameAliasDomainName,
-            hostedZoneId: restApiCustomDomain.domainNameAliasHostedZoneId 
-          }, 
-          healthCheckId: regionalRecordHealthCheck.getAtt("HealthCheckId").toString(),
-          hostedZoneId: zone.hostedZoneId,
-          region: props.env.region,
-          setIdentifier: "api-" + props.env.region
-        });
+            // ROUTE 53
+            const zone = route53.HostedZone.fromLookup(this, "zone", { domainName: props.domainName });
+
+            const regionalApiRecord = new route53.ARecord(this, 'regionalApiCustomDomainAliasRecord', {
+              zone: zone,
+              recordName: props.env.region,
+              target: route53.RecordTarget.fromAlias(new targets.ApiGatewayDomain(regionalApiCustomDomain))
+            });
+
+            const regionalRecordHealthCheck = new route53.CfnHealthCheck(this, 'regionApiDomainHealthCheck', {
+              healthCheckConfig: {
+                type: "HTTPS",
+                port: 443,
+                enableSni: true,
+                fullyQualifiedDomainName: props.env.region.concat("." + props.domainName),
+                resourcePath: "/health"
+              },
+              healthCheckTags: [
+                {
+                  key: "Name",
+                  value: "API Network Health Check ".concat(props.env.region)
+                }
+              ]
+            });
+
+            const globalApiRecord = new route53.CfnRecordSet(this, 'globalApiDomain', {
+              name: props.subDomainName.concat(props.domainName + "."),
+              type: "A",
+              aliasTarget: {
+                dnsName: restApiCustomDomain.domainNameAliasDomainName,
+                hostedZoneId: restApiCustomDomain.domainNameAliasHostedZoneId 
+              }, 
+              healthCheckId: regionalRecordHealthCheck.getAtt("HealthCheckId").toString(),
+              hostedZoneId: zone.hostedZoneId,
+              region: props.env.region,
+              setIdentifier: "api-" + props.env.region
+            });
+          }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.geoIpGlobalTableName + "\n Error: " + error));
+        }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.apiKeyGlobalTableName + "\n Error: " + error));
       }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.finishGlobalTableName + "\n Error: " + error));
     }).catch(error => console.log("Region: " + props.env.region + "\n TableName: " + props.initGlobalTableName + "\n Error: " + error));
   }

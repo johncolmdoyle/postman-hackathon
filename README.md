@@ -19,6 +19,8 @@ replicationRegions|This is the list of regions that will have the application de
 lambdaContainerRegions|This is the list of regions that currently support container based Lambdas. Only in these regions will the Docker images be deployed to.
 globalInitTableName|This is the DynamoDB Global table that will hold the user's initial request data.
 globalFinishTableName|This is the DynamoDB Global table that will contain all the results from the replicated regions.
+globalApiKeyTableName|This is the DynamoDB Global table that will keep API Keys in sync between all the regions.
+globalGeoIpTableName|This is the DynamoDB Global table that will store lat/long information of IPs.
 domainName|The domain name that will be used.
 subDomainName|he sub domain used by the API Gateway and the Certificate Manager.
 

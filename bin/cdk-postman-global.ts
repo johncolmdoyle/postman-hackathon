@@ -12,6 +12,8 @@ const globalstack = new CdkPostmanGlobalStack(
     env: {region: hackathonConfig.replicationRegions[0]},
     initialTableName: hackathonConfig.globalInitTableName,
     finishTableName: hackathonConfig.globalFinishTableName,
+    apiKeyTableName: hackathonConfig.globalApiKeyTableName,
+    geoIpTableName: hackathonConfig.globalGeoIpTableName,
     replicationRegions: hackathonConfig.replicationRegions.slice(1)});
 
 cdk.Tags.of(app).add("app", "postman-hackathon");

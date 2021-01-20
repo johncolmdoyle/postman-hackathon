@@ -21,6 +21,8 @@ hackathonConfig.replicationRegions.forEach(function (item, index) {
     regionalCert: regioncertstack.regionalCert,
     initGlobalTableName: hackathonConfig.globalInitTableName,
     finishGlobalTableName: hackathonConfig.globalFinishTableName,
+    apiKeyGlobalTableName: hackathonConfig.globalApiKeyTableName,
+    geoIpGlobalTableName: hackathonConfig.globalGeoIpTableName,
     lambdaContainerRegions: hackathonConfig.lambdaContainerRegions},);
 
   regionstack.addDependency(regioncertstack);
