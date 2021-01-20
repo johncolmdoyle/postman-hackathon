@@ -275,7 +275,9 @@ export class CdkPostmanStack extends cdk.Stack {
             const tests = api.root.addResource('tests');
 
             const initiatorIntegration = new apigateway.LambdaIntegration(initiatorLambda);
-            const createTestMethod = tests.addMethod('POST', initiatorIntegration);
+            const createTestMethod = tests.addMethod('POST', initiatorIntegration, { 
+                                       apiKeyRequired: true 
+                                     });
             addCorsOptions(tests);
 
             const testId = tests.addResource('{id}');
