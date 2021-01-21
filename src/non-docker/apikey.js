@@ -30,7 +30,7 @@ exports.handler = async (event, context) => {
   for (const record of event.Records) {
     console.log(JSON.stringify(record));
     
-    let id = record.dynamodb.NewImage.id.S;
+    let cognitoIdentityId = record.dynamodb.NewImage.cognitoIdentityId.S;
     let name = record.dynamodb.NewImage.name.S;
     let key = record.dynamodb.NewImage.key.S
     let userId = record.dynamodb.NewImage.userId.S;
@@ -45,6 +45,7 @@ exports.handler = async (event, context) => {
       name: name,
       tags: {
         'app': 'postman-hackathon'
+        'cognitoId': cognitoIdentityId
       },
       value: key
     };

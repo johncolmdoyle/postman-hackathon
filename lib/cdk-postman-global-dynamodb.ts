@@ -39,7 +39,7 @@ export class CdkPostmanGlobalStack extends cdk.Stack {
 
     // API Key Table
     const apiKeyTable = new dynamodb.Table(this, 'postman-hackathon-apikeys', {
-      partitionKey: { name: 'id',type: dynamodb.AttributeType.STRING},
+      partitionKey: { name: 'cognitoIdentityId',type: dynamodb.AttributeType.STRING},
       tableName: props.apiKeyTableName,
       billingMode: dynamodb.BillingMode.PROVISIONED,
       replicationRegions: props.replicationRegions,
@@ -64,6 +64,7 @@ export class CdkPostmanGlobalStack extends cdk.Stack {
       minCapacity: 1,
       maxCapacity: 10,
     }).scaleOnUtilization({ targetUtilizationPercent: 75 });
+
 
     apiKeyTable.autoScaleWriteCapacity({
       minCapacity: 1,
