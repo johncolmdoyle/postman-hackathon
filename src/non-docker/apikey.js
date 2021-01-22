@@ -44,8 +44,8 @@ exports.handler = async (event, context) => {
       enabled: enabled,
       name: name,
       tags: {
-        'app': 'postman-hackathon'
-        'cognitoId': cognitoIdentityId
+        'app': 'postman-hackathon',
+        'cognitoIdentityId': cognitoIdentityId
       },
       value: key
     };
