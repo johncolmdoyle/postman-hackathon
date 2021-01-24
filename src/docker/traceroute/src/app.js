@@ -14,6 +14,7 @@ const PRIMARY_KEY = process.env.PRIMARY_KEY || '';
 const SORT_KEY = process.env.SORT_KEY || '';
 const GEOIP_TABLE_NAME = process.env.GEOIP_TABLE_NAME || '';
 const GEOIP_PRIMARY_KEY = process.env.GEOIP_PRIMARY_KEY || '';
+const IPAPI_KEY = process.env.IPAPI_KEY || '';
 
 const RESERVED_RESPONSE = `Error: You're using AWS reserved keywords as attributes`,
   DYNAMODB_EXECUTION_ERROR = `Error: Execution update, caused a Dynamodb error, please take a look at your CloudWatch Logs.`;
@@ -28,7 +29,7 @@ function trace(domain) {
 
 function retrieveIPGeoInformation(ip){
     return new Promise(function(resolve, reject){
-        const url = 'https://ipapi.co/' + ip.replace(/['"]+/g, '') + '/json';
+        const url = 'https://ipapi.co/' + ip.replace(/['"]+/g, '') + '/json?key=' + IPAPI_KEY;
 
         let settings = { method: "Get" };
 

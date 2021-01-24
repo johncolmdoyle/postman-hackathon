@@ -1,6 +1,7 @@
 const whois = require('whois')
 const AWS = require('aws-sdk');
 const dns = require('dns');
+const psl = require('psl');
 
 const db = new AWS.DynamoDB.DocumentClient();
 
@@ -35,103 +36,127 @@ const RESERVED_RESPONSE = `Error: You're using AWS reserved keywords as attribut
 async function whoisLookup(domain){
   return new Promise((resolve, reject) => {
     whois.lookup(domain, function(err, data) {
-      let result = {};
-      let cleaned = data.split(/\r?\n/)
-      cleaned.forEach(function(value, index) {
-        let strAry = value.split(":");
+      if(err) {
+        console.log(JSON.stringify(err));
+      } else {
+        console.log(JSON.stringify(data));
 
-        // registrar info
-        if (registrar.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(registrarKey)) {
-            result[registrarKey] = {};
-          }
-          result[registrarKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
-        }
+        let result = {};
 
-        // domain name info
-        if (domainName.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(domainNameKey)) {
-            result[domainNameKey] = {};
-          }
+        if (data === undefined) reject("Crap.");
 
-          if (strAry[0] === "Domain Status") {
-            if (!result[domainNameKey].hasOwnProperty("status")) {
-              result[domainNameKey]["status"] = [];
+        let cleaned = data.split(/\r?\n/)
+        cleaned.forEach(function(value, index) {
+          let strAry = value.split(":");
+  
+          // registrar info
+          if (registrar.indexOf(strAry[0])>= 0) {
+            if (!result.hasOwnProperty(registrarKey)) {
+              result[registrarKey] = {};
             }
+            result[registrarKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
+          }
 
-            let spaceSeperation = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "").split(" ");
-            let temp = {};
-            temp["code"] = spaceSeperation[0];
-            temp["ref"] = spaceSeperation.slice(1).join("");
-            result[domainNameKey]["status"].push(temp);
-          } else {
+          // domain name info
+          if (domainName.indexOf(strAry[0])>= 0) {
             if (!result.hasOwnProperty(domainNameKey)) {
               result[domainNameKey] = {};
             }
 
-            result[domainNameKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
-          }
-        }
+            if (strAry[0] === "Domain Status") {
+              if (!result[domainNameKey].hasOwnProperty("status")) {
+                result[domainNameKey]["status"] = [];
+              }
 
-        // registrant info
-        if (registrant.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(registrantKey)) {
-            result[registrantKey] = {};
-          }
-          result[registrantKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
-        }
+              let spaceSeperation = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "").split(" ");
+              let temp = {};
+              temp["code"] = spaceSeperation[0];
+              temp["ref"] = spaceSeperation.slice(1).join("");
+              result[domainNameKey]["status"].push(temp);
+            } else {
+              if (!result.hasOwnProperty(domainNameKey)) {
+                result[domainNameKey] = {};
+              }
 
-        // admin info
-        if (admin.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(adminKey)) {
-            result[adminKey] = {};
+              result[domainNameKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
+            }
           }
-          result[adminKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
-        }
-  
-        // tech info
-        if (tech.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(techKey)) {
-            result[techKey] = {};
-          }
-          result[techKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
-        }
-  
-        // name servers info
-        if (nameServers.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(nameServerKey)) {
-            result[nameServerKey] = [];
-          }
-          result[nameServerKey].push(strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, ""));
-        }
 
-        // dns sec info
-        if (dnsSec.indexOf(strAry[0])>= 0) {
-          if (!result.hasOwnProperty(dnsSecKey)) {
-            result[dnsSecKey] = {};
+          // registrant info
+          if (registrant.indexOf(strAry[0])>= 0) {
+            if (!result.hasOwnProperty(registrantKey)) {
+              result[registrantKey] = {};
+            }
+            result[registrantKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
           }
-          result[dnsSecKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
-        }
+
+          // admin info
+          if (admin.indexOf(strAry[0])>= 0) {
+            if (!result.hasOwnProperty(adminKey)) {
+              result[adminKey] = {};
+            }
+            result[adminKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
+          }
+    
+          // tech info
+          if (tech.indexOf(strAry[0])>= 0) {
+            if (!result.hasOwnProperty(techKey)) {
+              result[techKey] = {};
+            }
+            result[techKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
+          }
+     
+          // name servers info
+          if (nameServers.indexOf(strAry[0])>= 0) {
+            if (!result.hasOwnProperty(nameServerKey)) {
+              result[nameServerKey] = [];
+            }
+            result[nameServerKey].push(strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, ""));
+          }
  
-        if(whoisUpdate.indexOf(strAry[0])>=0) {
-          if (!result.hasOwnProperty(whoisUpdateKey)) {
-            result[whoisUpdateKey] = {};
+          // dns sec info
+          if (dnsSec.indexOf(strAry[0])>= 0) {
+            if (!result.hasOwnProperty(dnsSecKey)) {
+              result[dnsSecKey] = {};
+            }
+            result[dnsSecKey][strAry[0]] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
           }
-          result[whoisUpdateKey]["lastUpdate"] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$|</g, "");
-        }
+   
+          if(whoisUpdate.indexOf(strAry[0])>=0) {
+            if (!result.hasOwnProperty(whoisUpdateKey)) {
+              result[whoisUpdateKey] = {};
+            }
+            result[whoisUpdateKey]["lastUpdate"] = strAry.slice(1).join('').replace(/\s+/g, " ").replace(/^\s|\s$|</g, "");
+          }
+      
+        });
     
-      });
-    
-      resolve(result);
+        resolve(result);
+      }
     });
   });
 };
 
 exports.handler = async (event, context) => {
   for (const record of event.Records) {
-    let url = new URL(record.dynamodb.NewImage.apiUrl.S);
+    let rawUrl = record.dynamodb.NewImage.apiUrl.S;
+    
+    var hostname;
+    //find & remove protocol (http, ftp, etc.) and get hostname
 
-    const whoisPromise = whoisLookup(url.hostname);
+    if (rawUrl.indexOf("//") > -1) {
+        hostname = rawUrl.split('/')[2];
+    }
+    else {
+        hostname = rawUrl.split('/')[0];
+    }
+
+    //find & remove port number
+    hostname = hostname.split(':')[0];
+    //find & remove "?"
+    hostname = hostname.split('?')[0];
+    let url = psl.parse(hostname);
+    const whoisPromise = whoisLookup(url.domain);
     const dataResponse = await Promise.all([whoisPromise]);
 
     let item = {};
@@ -156,3 +181,5 @@ exports.handler = async (event, context) => {
     }
   }
 };
+
+

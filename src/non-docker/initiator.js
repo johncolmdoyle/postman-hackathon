@@ -28,6 +28,8 @@ exports.handler = async (event, context, callback) => {
   item['createdAt'] = (Math.floor(+new Date() / 1000)).toString();
   item['ttl'] = (Math.floor(+new Date() / 1000) + TTL_DELTA).toString();
   item['lambdaRequestId'] = context.awsRequestId;
+  item['apiKey'] = event.requestContext.identity.apiKey;
+  item['sourceIp'] = event.requestContext.identity.sourceIp;
 
   const params = {
     TableName: TABLE_NAME,
@@ -38,8 +40,12 @@ exports.handler = async (event, context, callback) => {
     await db.put(params).promise();
 
     // Remove trace info
+    item['testId'] = item[PRIMARY_KEY];
+    delete item[PRIMARY_KEY];
     delete item['lambdaRequestId'];
     delete item['initRegion'];
+    delete item['apiKey'];
+    delete item['sourceIp'];
 
     return { statusCode: 201, body: JSON.stringify(item) };
   } catch (dbError) {

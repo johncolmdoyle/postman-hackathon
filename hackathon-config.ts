@@ -10,5 +10,6 @@ export let hackathonConfig = {
   "globalApiKeyTableName": "postman-hackathon-apikey",
   "globalGeoIpTableName": "postman-hackathon-geoip",
   "domainName": "api-network.info",
-  "subDomainName": "rest."
+  "subDomainName": "rest.",
+  "ipapiKey": ""
 }

@@ -24,6 +24,7 @@ interface CdkPostmanStackProps extends cdk.StackProps {
   readonly subDomainName: string;
   readonly lambdaContainerRegions: string[];
   readonly env: any;
+  readonly ipapiKey: string;
 }
 
 export class CdkPostmanStack extends cdk.Stack {
@@ -209,7 +210,8 @@ export class CdkPostmanStack extends cdk.Stack {
                   PRIMARY_KEY: 'initId',
                   SORT_KEY: 'functionCall',
                   GEOIP_TABLE_NAME: geoIpGlobalTable.tableName,
-                  GEOIP_PRIMARY_KEY: 'ip' 
+                  GEOIP_PRIMARY_KEY: 'ip',
+                  IPAPI_KEY: props.ipapiKey 
                 }
               });
 

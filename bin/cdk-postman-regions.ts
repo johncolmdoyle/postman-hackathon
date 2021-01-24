@@ -23,7 +23,9 @@ hackathonConfig.replicationRegions.forEach(function (item, index) {
     finishGlobalTableName: hackathonConfig.globalFinishTableName,
     apiKeyGlobalTableName: hackathonConfig.globalApiKeyTableName,
     geoIpGlobalTableName: hackathonConfig.globalGeoIpTableName,
-    lambdaContainerRegions: hackathonConfig.lambdaContainerRegions},);
+    lambdaContainerRegions: hackathonConfig.lambdaContainerRegions,
+    ipapiKey: hackathonConfig.ipapiKey 
+  });
 
   regionstack.addDependency(regioncertstack);
 });
