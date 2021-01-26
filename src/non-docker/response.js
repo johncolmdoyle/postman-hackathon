@@ -1,5 +1,6 @@
 const AWS = require('aws-sdk');
 const axios = require('axios');
+const jp = require('jsonpath');
 
 const db = new AWS.DynamoDB.DocumentClient();
 
@@ -54,6 +55,17 @@ exports.handler = async (event, context) => {
         item['response']['headers'] = dataResponse[0].headers;
         item['response']['config'] = dataResponse[0].config;
         item['response']['latency'] = dataResponse[0].responseTime;
+
+        if (record.dynamodb.NewImage.hasOwnProperty('jsonPath')) {
+          const jsonPath = "" + record.dynamodb.NewImage.jsonPath.S;
+          let responseBody = jp.query(dataResponse[0].data, jsonPath);
+          let responseDataSize = Buffer.byteLength(JSON.stringify(responseBody), "utf8");
+          if (responseDataSize < 50000) {
+            item['response']['data'] = responseBody;
+          } else {
+            console.log("Response too large");
+          }
+        }
     }catch(err){
         console.error(err);
     }
@@ -70,5 +82,4 @@ exports.handler = async (event, context) => {
     }
   }
 };
-
 

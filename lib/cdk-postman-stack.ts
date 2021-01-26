@@ -141,6 +141,16 @@ export class CdkPostmanStack extends cdk.Stack {
               }
             });
 
+            const retrievePrivateLambda = new lambda.Function(this, 'retrievePrivateFunction', {
+              code: new lambda.AssetCode('src/non-docker'),
+              handler: 'retrievePrivate.handler',
+              runtime: lambda.Runtime.NODEJS_10_X,
+              environment: {
+                TABLE_NAME: initGlobalTable.tableName,
+                PRIMARY_KEY: 'apiKey'
+              }
+            });
+
             const healthLambda = new lambda.Function(this, 'healthFunction', {
               code: new lambda.AssetCode('src/non-docker'),
               handler: 'health.handler',
@@ -287,6 +297,13 @@ export class CdkPostmanStack extends cdk.Stack {
             testId.addMethod('GET', retrieveIntegration);
             addCorsOptions(testId);
 
+            const privatePath = api.root.addResource('private');
+            const retrievePrivateIntegration = new apigateway.LambdaIntegration(retrievePrivateLambda);
+            const createPrivateMethod = privatePath.addMethod('GET', retrievePrivateIntegration, {
+                                       apiKeyRequired: true
+                                     });
+            addCorsOptions(privatePath);
+
             // Usage Plans
             const freeUsagePlan = api.addUsagePlan('freeUsagePlan', {
               name: 'Api-Network-Free',
@@ -318,6 +335,8 @@ export class CdkPostmanStack extends cdk.Stack {
               runtime: lambda.Runtime.NODEJS_10_X,
               environment: {
                 USAGE_PLAN_ID: freeUsagePlan.usagePlanId,
+                TABLE_NAME: apiKeyGlobalTable.tableName,
+                PRIMARY_KEY: "cognitoIdentityId"
               }
             });
 

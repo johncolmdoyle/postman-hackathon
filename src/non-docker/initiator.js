@@ -1,11 +1,33 @@
 const AWS = require('aws-sdk');
 const db = new AWS.DynamoDB.DocumentClient();
+const axios = require('axios');
 const {"v4": uuidv4} = require('uuid');
 const TABLE_NAME = process.env.TABLE_NAME || '';
 const PRIMARY_KEY = process.env.PRIMARY_KEY || '';
 
 const RESERVED_RESPONSE = `Error: You're using AWS reserved keywords as attributes`,
   DYNAMODB_EXECUTION_ERROR = `Error: Execution update, caused a Dynamodb error, please take a look at your CloudWatch Logs.`;
+
+async function requestData(url){
+    return new Promise((resolve, reject) => {
+      axios.interceptors.request.use( x => {
+        x.meta = x.meta || {}
+        x.meta.requestStartedAt = new Date().getTime();
+        return x;
+      });
+
+      axios.interceptors.response.use( x => {
+        x.responseTime = new Date().getTime() - x.config.meta.requestStartedAt;
+        return x;
+      });
+
+      axios.get(url)
+        .then(function (response) {
+          resolve(response);
+        })
+        .catch(err => reject(err))
+  });
+};
 
 exports.handler = async (event, context, callback) => {
   if (!event.body) {
@@ -16,6 +38,13 @@ exports.handler = async (event, context, callback) => {
 
   if (!userData.apiUrl) {
     return { statusCode: 400, body: 'invalid request, no apiUrl included in the paramater body.' };
+  }
+
+  const requestInfo = requestData(userData.apiUrl);
+  const dataResponse = await Promise.all([requestInfo]);
+
+  if (Number(dataResponse[0].status) < 200 || Number(dataResponse[0].status) > 299) {
+    return { statusCode: 400, body: 'invalid request, apiUrl responded with status code: ' + dataResponse[0].status + '. Expected a number between 200-299'};
   }
 
   let item = {};
@@ -30,6 +59,10 @@ exports.handler = async (event, context, callback) => {
   item['lambdaRequestId'] = context.awsRequestId;
   item['apiKey'] = event.requestContext.identity.apiKey;
   item['sourceIp'] = event.requestContext.identity.sourceIp;
+
+  if (userData.hasOwnProperty('jsonPath')) {
+    item['jsonPath'] = userData.jsonPath;
+  }
 
   const params = {
     TableName: TABLE_NAME,

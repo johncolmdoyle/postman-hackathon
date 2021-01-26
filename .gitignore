@@ -14,3 +14,4 @@ cdk.context.json
 
 # config
 hackathon-config.js
+hackathon-config.ts
