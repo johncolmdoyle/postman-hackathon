@@ -29,11 +29,24 @@ async function createApiKey(params){
    });
 };
 
+async function deleteApiKey(params){
+    return new Promise((resolve, reject) => {
+      apigateway.deleteApiKey(params, function(err, data) {
+        if (err) console.log(err, err.stack); // an error occurred
+        else {
+          resolve(data);
+        }
+      });
+   });
+};
+
 exports.handler = async (event, context) => {
   for (const record of event.Records) {
     console.log(JSON.stringify(record));
     
     if (record.hasOwnProperty('eventName') && record.eventName === "INSERT") {
+      const createdAt = (Math.floor(+new Date() / 1000)).toString();
+
       let cognitoIdentityId = record.dynamodb.NewImage.cognitoIdentityId.S;
       let name = record.dynamodb.NewImage.name.S;
       let key = record.dynamodb.NewImage.key.S
@@ -67,32 +80,53 @@ exports.handler = async (event, context) => {
       const usagePlanRequest = addToUsagePlan(addParams);
       const usageResponse = await Promise.all([usagePlanRequest]);
 
-      var updateParams = {
-        TableName: TABLENAME,
-        Key:{
-          PRIMARY_KEY: cognitoIdentityId,
+      const keyData = {};
+      keyData[PRIMARY_KEY] = cognitoIdentityId;
+
+      const insertParams = {
+        TableName: TABLE_NAME,
+        Key: keyData,
+        UpdateExpression: "set createdAt = :createdAt, #apiKeyId = :apiKeyId",
+        ExpressionAttributeNames: {
+          "#apiKeyId": "apiKeyId"
         },
-        UpdateExpression: "set apiKeyId = :apiKeyId",
-        ExpressionAttributeValues:{
+        ExpressionAttributeValues: {
+          ":createdAt": createdAt,
           ":apiKeyId": dataResponse[0].id
-        },
+        }
       };
 
-      db.update(updateParams, function(err, data) {
-        if (err) {
-          console.error("Unable to update item. Error JSON:", JSON.stringify(err, null, 2));
-        } else {
-          console.log("UpdateItem succeeded:", JSON.stringify(data, null, 2));
-        }
-      }); 
+      try {
+        await db.update(insertParams).promise();
+      } catch (dbError) {
+        console.log(JSON.stringify(dbError))
+      }
     } else if (record.hasOwnProperty('eventName') && record.eventName === "REMOVE") {
-      let cognitoIdentityId = record.dynamodb.OldImage.cognitoIdentityId.S;
-      let name = record.dynamodb.NewImage.name.S;
-      let key = record.dynamodb.NewImage.key.S
-      let userId = record.dynamodb.NewImage.userId.S;
-      let description = record.dynamodb.NewImage.description.S;
-      let enabled = record.dynamodb.NewImage.enabled.BOOL;
-      let usagePlanName = record.dynamodb.NewImage.usagePlanName.S;
+      const cognitoIdentityId = record.dynamodb.OldImage.cognitoIdentityId.S;
+
+      const keyData = {};
+      keyData[PRIMARY_KEY] = cognitoIdentityId;
+
+      let getParams = {
+        TableName : TABLE_NAME,
+        Key: keyData
+      };
+
+      try {
+        const data = await db.get(getParams).promise();
+
+        console.log(JSON.stringify(data));
+
+        var deleteParams = {
+          apiKey: data.Item.apiKeyId
+        };
+        
+        const deleteAPIRequest = deleteApiKey(deleteParams);
+        const deleteAPIResponse = await Promise.all([deleteAPIRequest]);
+      } catch (dbError) {
+        console.log(JSON.stringify(dbError))
+      }
     }
+  }
 };
 

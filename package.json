@@ -10,6 +10,7 @@
     "test": "jest",
     "cdk": "cdk",
     "cdk-bootstrap-regions": "./bootstrap-cdk.js \"./bin/cdk-postman-global.ts\"",
+    "synth-regions": "cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" synth",
     "deploy-global": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never",
     "deploy-replications": "cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never",
     "deploy-all": "cdk --app \"npx ts-node bin/cdk-postman-global.ts\" deploy --all --require-approval never && cdk --app \"npx ts-node bin/cdk-postman-regions.ts\" deploy --all --require-approval never",

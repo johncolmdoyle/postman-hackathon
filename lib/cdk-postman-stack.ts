@@ -75,6 +75,12 @@ export class CdkPostmanStack extends cdk.Stack {
               stream: dynamodb.StreamViewType.NEW_IMAGE
             });
 
+            const regionApiKeyTable = new dynamodb.Table(this, "regionApiKeyTable", {
+              billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+              partitionKey: { name: "cognitoIdentityId", type: dynamodb.AttributeType.STRING },
+              removalPolicy: cdk.RemovalPolicy.DESTROY,
+            });
+
             // NODE LAMBDA
             const initiatorLambda = new lambda.Function(this, 'initiatorFunction', {
               code: new lambda.AssetCode('src/non-docker'),
@@ -335,19 +341,29 @@ export class CdkPostmanStack extends cdk.Stack {
               runtime: lambda.Runtime.NODEJS_10_X,
               environment: {
                 USAGE_PLAN_ID: freeUsagePlan.usagePlanId,
-                TABLE_NAME: apiKeyGlobalTable.tableName,
+                TABLE_NAME: regionApiKeyTable.tableName,
                 PRIMARY_KEY: "cognitoIdentityId"
               }
             });
 
             // Permissions
             apiKeyGlobalTable.grantStreamRead(apiKeyLambda);
+            regionApiKeyTable.grantReadWriteData(apiKeyLambda);
+
             apiKeyLambda.addToRolePolicy(
               new iam.PolicyStatement({
                 effect: iam.Effect.ALLOW,
                 resources: ['arn:aws:apigateway:' + props.env.region + '::/tags/arn%3Aaws%3Aapigateway%3A' + props.env.region + '%3A%3A%2Fapikeys%2F*'],
                 actions: ['apigateway:PUT']
               }) 
+            );
+
+            apiKeyLambda.addToRolePolicy(
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                resources: ['arn:aws:apigateway:' + props.env.region + '::/apikeys/*'],
+                actions: ['apigateway:DELETE']
+              })
             );
 
             apiKeyLambda.addToRolePolicy(
